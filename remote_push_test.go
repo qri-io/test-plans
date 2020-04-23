@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/testground/sdk-go/runtime"
 )
 
 func TestRemotePush(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 	"github.com/qri-io/qri/repo/profile"
 	reporef "github.com/qri-io/qri/repo/ref"
 
-	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/testground/sdk-go/runtime"
 )
 
 var (

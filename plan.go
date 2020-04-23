@@ -7,8 +7,8 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/ipfs/testground/sdk/runtime"
-	"github.com/ipfs/testground/sdk/sync"
+	"github.com/testground/sdk-go/runtime"
+	"github.com/testground/sdk-go/sync"
 
 	"github.com/ipfs/testground/plans/qri/sim"
 )
@@ -33,8 +33,7 @@ func PlanConfigFromRuntimeEnv(runenv *runtime.RunEnv) *PlanConfig {
 type Plan struct {
 	Cfg       *PlanConfig
 	Runenv    *runtime.RunEnv
-	Watcher   *sync.Watcher
-	Writer    *sync.Writer
+	Client    *sync.Client
 	finishedC <-chan error
 
 	Actor  *sim.Actor
@@ -43,14 +42,14 @@ type Plan struct {
 
 // NewPlan creates a plan instance from runtime data
 func NewPlan(ctx context.Context, runenv *runtime.RunEnv) *Plan {
-	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
+	client := sync.MustBoundClient(ctx, runenv)
+	defer client.Close()
 
 	return &Plan{
 		Cfg:       PlanConfigFromRuntimeEnv(runenv),
 		Runenv:    runenv,
-		Watcher:   watcher,
-		Writer:    writer,
-		finishedC: watcher.Barrier(ctx, FinishedState, int64(runenv.TestInstanceCount)),
+		Client:    client,
+		finishedC: client.Barrier(ctx, FinishedState, int64(runenv.TestInstanceCount)),
 
 		Others: map[string]*sim.ActorInfo{},
 	}
@@ -85,11 +84,11 @@ func (plan *Plan) SetupNetwork(ctx context.Context) error {
 		State: "network-configured",
 	}
 
-	if _, err = plan.Writer.Write(ctx, sync.NetworkSubtree(hostname), &ntwkCfg); err != nil {
+	if _, err = plan.Client.Publish(ctx, sync.NetworkTopic(hostname), &config); err != nil {
 		return err
 	}
 
-	return <-plan.Watcher.Barrier(ctx, ntwkCfg.State, int64(plan.Runenv.TestInstanceCount))
+	return <-plan.client.MustBarrier(ctx, config.State, runenv.TestInstanceCount).C
 }
 
 // ActorConstructor is a function that creates an actor
@@ -188,6 +187,5 @@ func (plan *Plan) Finished(ctx context.Context) <-chan error {
 
 // Close finalizes the plan & cleans up resources
 func (plan *Plan) Close() {
-	plan.Watcher.Close()
-	plan.Writer.Close()
+	plan.Client.Close()
 }

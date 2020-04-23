@@ -17,8 +17,8 @@ import (
 	"github.com/qri-io/qri/repo/gen"
 	reporef "github.com/qri-io/qri/repo/ref"
 
-	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/testground/sdk-go/runtime"
 )
 
 var (
@@ -91,14 +91,15 @@ func setup(cfg *Config) error {
 	return lib.Setup(p)
 }
 
-func (a *Actor) subscribe(handlers map[event.Topic]func(payloay interface{})) {
+func (a *Actor) subscribe(handlers map[event.Topic]func(payload interface{})) {
 	topics := make([]event.Topic, 0, len(handlers))
 	for t := range handlers {
 		topics = append(topics, t)
 	}
-
+	fmt.Printf("subscribing to events: %v\n%v\n", topics, handlers)
 	events := a.Inst.Bus().Subscribe(topics...)
 	for evt := range events {
+		fmt.Printf("GOT EVENT: %s %#v\n\n", evt.Topic, evt.Payload)
 		handlers[evt.Topic](evt.Payload)
 	}
 }
@@ -239,6 +240,12 @@ func defaultQriActorConfig() *config.Config {
 			AcceptSizeMax: -1,
 			// RequireAllBlocks: true,
 			AllowRemoves: true,
+		},
+		Logging: &config.Logging{
+			Levels: map[string]string{
+				"event": "debug",
+				"p2p":   "debug",
+			},
 		},
 		CLI:    &config.CLI{},
 		Webapp: &config.Webapp{},

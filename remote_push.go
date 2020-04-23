@@ -41,13 +41,15 @@ func newPusher(ctx context.Context, plan *Plan) (*sim.Actor, error) {
 		cfg.QriConfig.Remote.Enabled = false
 
 		cfg.EventHandlers = map[event.Topic]func(interface{}){
-			event.ETP2PQriPeerConnectedEvent: func(payload interface{}) {
+			event.ETP2PQriPeerConnected: func(payload interface{}) {
 				if pro, ok := payload.(*profile.Profile); ok {
-					plan.Runenv.RecordMessage("peer connected! %#v", pro)
+					plan.Runenv.RecordMessage("qri peer connected! %#v", pro)
 					// TODO (b5) - attempt to publish to peer just connected to
-					plan.ActorFinished(ctx)
 				}
-				// wait <- fmt.Errorf("%q didn't emit a profile.Profile payload", event.ETP2PQriPeerConnectedEvent)
+			},
+			event.ETP2PPeerConnected: func(payload interface{}) {
+				plan.Runenv.RecordMessage("peer connected")
+				plan.ActorFinished(ctx)
 			},
 		}
 	}
@@ -65,6 +67,15 @@ func newPusher(ctx context.Context, plan *Plan) (*sim.Actor, error) {
 		return nil, err
 	}
 
+	// notifee := &net.NotifyBundle{
+	// 	ConnectedF: func(_ net.Network, conn net.Conn) {
+	// 		plan.Runenv.RecordMessage("peer connected in notifee! %#v", conn)
+	// 		plan.ActorFinished(ctx)
+	// 	},
+	// }
+
+	// act.Inst.Node().Host().Network().Notify(notifee)
+
 	plan.Runenv.RecordMessage("I'm a Pusher named %s", act.Peername())
 	return act, err
 }
@@ -72,13 +83,15 @@ func newPusher(ctx context.Context, plan *Plan) (*sim.Actor, error) {
 func newReceiver(ctx context.Context, plan *Plan) (*sim.Actor, error) {
 	opt := func(cfg *sim.Config) {
 		cfg.EventHandlers = map[event.Topic]func(interface{}){
-			event.ETP2PQriPeerConnectedEvent: func(payload interface{}) {
+			event.ETP2PQriPeerConnected: func(payload interface{}) {
 				if pro, ok := payload.(*profile.Profile); ok {
-					plan.Runenv.RecordMessage("peer connected! %#v", pro)
-					// TODO (b5) - don't mark finished unti we've received a dataset
-					plan.ActorFinished(ctx)
+					plan.Runenv.RecordMessage("qri peer connected! %#v", pro)
+					// TODO (b5) - attempt to publish to peer just connected to
 				}
-				// wait <- fmt.Errorf("%q didn't emit a profile.Profile payload", event.ETP2PQriPeerConnectedEvent)
+			},
+			event.ETP2PPeerConnected: func(payload interface{}) {
+				plan.Runenv.RecordMessage("peer connected")
+				plan.ActorFinished(ctx)
 			},
 		}
 	}
