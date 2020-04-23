@@ -10,13 +10,13 @@ runner = "local:exec"
 [builders."docker:go"]
 enabled = true
 go_version = "1.13"
-module_path = "github.com/qri-io/testground-qri"
+module_path = "github.com/qri-io/test-plans"
 exec_pkg = "."
 go_ipfs_version = "0.4.21"
 
 [builders."exec:go"]
 enabled = true
-module_path = "github.com/qri-io/testground-qri"
+module_path = "github.com/qri-io/test-plans"
 exec_pkg = "."
 
 [runners."local:docker"]
@@ -30,8 +30,7 @@ enabled = true
 
 [[testcases]]
 name = "remote-push"
-instances = { min = 2, max = 200, default = 3 }
-
+instances = { min = 2, max = 200, default = 2 }
   [testcases.params]
   timeout_secs = { type = "int", desc = "test timeout", unit = "seconds", default = 300 }
   latency      = { type = "int", desc = "latency between peers", unit = "ms", default = 100 }

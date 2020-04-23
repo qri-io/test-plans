@@ -802,6 +802,8 @@ github.com/qri-io/qri v0.9.8-0.20200415214147-7d6ef3978615 h1:DbkAYjsalTocvbD1UN
 github.com/qri-io/qri v0.9.8-0.20200415214147-7d6ef3978615/go.mod h1:XdTZizL5qvMIHxiMLxIyKaxrSKgJr8LVr4DxdzLBZVc=
 github.com/qri-io/starlib v0.4.2-0.20200406084526-0e4566b610a1 h1:5b7Tt8wMngs2Bj8U9OOhjLYtCidL5TH9Sa/EQsFgTIs=
 github.com/qri-io/starlib v0.4.2-0.20200406084526-0e4566b610a1/go.mod h1:Nno0nW88BMydkiYjFYwswcQxQTSYhYAivSdFwlm5l04=
+github.com/qri-io/testground-qri v0.0.0-20200423032231-2dc6dcb4ed19 h1:lzNeLWt7wIdnzBGqehBuLrk/NLokuVdqxoaTTaEQ76o=
+github.com/qri-io/testground-qri v0.0.0-20200423032231-2dc6dcb4ed19/go.mod h1:YI10pjWXNmnp33rXgXE9/xNpBdBfNwJLFUDiPNEddy0=
 github.com/qri-io/varName v0.1.0 h1:dFP5qZHrxnn5fNoMbjfpMCRBYDrOsoyls7R07r+emk0=
 github.com/qri-io/varName v0.1.0/go.mod h1:IGWuuGOHhLJ9ZZg28C/+oMYm1QYP+pAorNZKQpdXhxQ=
 github.com/rainycape/unidecode v0.0.0-20150907023854-cb7f23ec59be/go.mod h1:MIDFMn7db1kT65GmV94GzpX9Qdi7N/pQlwb+AN8wh+Q=

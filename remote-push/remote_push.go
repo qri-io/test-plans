@@ -3,10 +3,9 @@ package main
 import (
 	"context"
 
-	"github.com/ipfs/testground/plans/qri/sim"
-
 	"github.com/qri-io/qri/event"
 	"github.com/qri-io/qri/repo/profile"
+	"github.com/qri-io/test-plans/sim"
 )
 
 // RunPlanRemotePushPull demonstrates test output functions

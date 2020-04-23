@@ -4,13 +4,12 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"reflect"
 	"time"
 
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
 
-	"github.com/ipfs/testground/plans/qri/sim"
+	"github.com/qri-io/test-plans/sim"
 )
 
 // PlanConfig encapsulates test plan paremeters
@@ -49,7 +48,7 @@ func NewPlan(ctx context.Context, runenv *runtime.RunEnv) *Plan {
 		Cfg:       PlanConfigFromRuntimeEnv(runenv),
 		Runenv:    runenv,
 		Client:    client,
-		finishedC: client.Barrier(ctx, FinishedState, int64(runenv.TestInstanceCount)),
+		finishedC: client.MustBarrier(ctx, FinishedState, runenv.TestInstanceCount).C,
 
 		Others: map[string]*sim.ActorInfo{},
 	}
@@ -59,10 +58,6 @@ func NewPlan(ctx context.Context, runenv *runtime.RunEnv) *Plan {
 func (plan *Plan) SetupNetwork(ctx context.Context) error {
 	if !plan.Runenv.TestSidecar {
 		return nil
-	}
-
-	if err := sync.WaitNetworkInitialized(ctx, plan.Runenv, plan.Watcher); err != nil {
-		return err
 	}
 
 	hostname, err := os.Hostname()
@@ -84,11 +79,11 @@ func (plan *Plan) SetupNetwork(ctx context.Context) error {
 		State: "network-configured",
 	}
 
-	if _, err = plan.Client.Publish(ctx, sync.NetworkTopic(hostname), &config); err != nil {
+	if _, err = plan.Client.Publish(ctx, sync.NetworkTopic(hostname), &ntwkCfg); err != nil {
 		return err
 	}
 
-	return <-plan.client.MustBarrier(ctx, config.State, runenv.TestInstanceCount).C
+	return <-plan.Client.MustBarrier(ctx, ntwkCfg.State, plan.Runenv.TestInstanceCount).C
 }
 
 // ActorConstructor is a function that creates an actor
@@ -102,18 +97,16 @@ func (plan *Plan) ConstructActor(ctx context.Context, constructor ActorConstruct
 	return err
 }
 
-// ActorInfoSubtree represents a subtree under the test run's sync tree
+// ActorInfoTopic represents a subtree under the test run's sync tree
 // where peers participating in this distributed test advertise their attributes
-var ActorInfoSubtree = &sync.Subtree{
-	GroupKey:    "actor-info",
-	PayloadType: reflect.TypeOf(&sim.ActorInfo{}),
-	KeyFunc: func(val interface{}) string {
-		return val.(*sim.ActorInfo).PeerID
-	},
-}
+var ActorInfoTopic = sync.NewTopic("actor-info", &sim.ActorInfo{})
 
 // ShareInfo wires up all nodes to each other
 func (plan *Plan) ShareInfo(ctx context.Context) error {
+	if err := plan.Client.WaitNetworkInitialized(ctx, plan.Runenv); err != nil {
+		return err
+	}
+
 	if !plan.Runenv.TestSidecar {
 		return nil
 	}
@@ -121,15 +114,14 @@ func (plan *Plan) ShareInfo(ctx context.Context) error {
 	plan.Runenv.RecordMessage("Getting Actor info: %#v", plan.Actor)
 	actorInfo := plan.Actor.Info(plan.Runenv)
 	// write our own info
-	if _, err := plan.Writer.Write(ctx, ActorInfoSubtree, actorInfo); err != nil {
-		return fmt.Errorf("writing ActorInfo: %w", err)
+
+	if _, err := plan.Client.Publish(ctx, ActorInfoTopic, actorInfo); err != nil {
+		return fmt.Errorf("publishing ActorInfo: %w", err)
 	}
 
-	subCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
 	infoCh := make(chan *sim.ActorInfo)
-	if err := plan.Watcher.Subscribe(subCtx, ActorInfoSubtree, infoCh); err != nil {
+	sub, err := plan.Client.Subscribe(ctx, ActorInfoTopic, infoCh)
+	if err != nil {
 		return fmt.Errorf("node info subscription failure: %w", err)
 	}
 
@@ -140,8 +132,8 @@ func (plan *Plan) ShareInfo(ctx context.Context) error {
 				continue
 			}
 			plan.Others[info.PeerID] = info
-		case <-ctx.Done():
-			return ctx.Err()
+		case err := <-sub.Done():
+			return err
 		}
 	}
 
@@ -174,7 +166,7 @@ const FinishedState = sync.State("finished")
 func (plan *Plan) ActorFinished(ctx context.Context) error {
 	plan.Runenv.RecordMessage("Finished")
 	// write our oun attribute info
-	if _, err := plan.Writer.SignalEntry(ctx, FinishedState); err != nil {
+	if _, err := plan.Client.SignalEntry(ctx, FinishedState); err != nil {
 		return fmt.Errorf("ActorFinished failure: %w", err)
 	}
 	return nil
