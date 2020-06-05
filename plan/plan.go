@@ -1,11 +1,11 @@
-package main
+package plan
 
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
+	"github.com/testground/sdk-go/network"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
 
@@ -42,7 +42,6 @@ type Plan struct {
 // NewPlan creates a plan instance from runtime data
 func NewPlan(ctx context.Context, runenv *runtime.RunEnv) *Plan {
 	client := sync.MustBoundClient(ctx, runenv)
-	defer client.Close()
 
 	return &Plan{
 		Cfg:       PlanConfigFromRuntimeEnv(runenv),
@@ -59,31 +58,34 @@ func (plan *Plan) SetupNetwork(ctx context.Context) error {
 	if !plan.Runenv.TestSidecar {
 		return nil
 	}
+	// hostname, err := os.Hostname()
+	// if err != nil {
+	// 	return err
+	// }
 
-	hostname, err := os.Hostname()
-	if err != nil {
-		return err
-	}
-
-	ntwkCfg := sync.NetworkConfig{
+	ntwkCfg := network.Config{
 		// Control the "default" network. At the moment, this is the only network.
 		Network: "default",
 
 		// Enable this network. Setting this to false will disconnect this test
 		// instance from this network. You probably don't want to do that.
 		Enable: true,
-		Default: sync.LinkShape{
+		Default: network.LinkShape{
 			Latency:   plan.Cfg.Latency,
 			Bandwidth: 10 << 20, // 10Mib
 		},
-		State: "network-configured",
+		CallbackState: "network-configured",
 	}
 
-	if _, err = plan.Client.Publish(ctx, sync.NetworkTopic(hostname), &ntwkCfg); err != nil {
-		return err
-	}
+	// if _, err = plan.Client.Publish(ctx, network.Topic(hostname), &ntwkCfg); err != nil {
+	// 	return err
+	// }
 
-	return <-plan.Client.MustBarrier(ctx, ntwkCfg.State, plan.Runenv.TestInstanceCount).C
+	// return <-plan.Client.MustBarrier(ctx, ntwkCfg.CallbackState, plan.Runenv.TestInstanceCount).C
+	netclient := network.NewClient(plan.Client, plan.Runenv)
+	netclient.MustWaitNetworkInitialized(ctx)
+	netclient.MustConfigureNetwork(ctx, &ntwkCfg)
+	return nil
 }
 
 // ActorConstructor is a function that creates an actor
@@ -100,17 +102,10 @@ func (plan *Plan) ConstructActor(ctx context.Context, constructor ActorConstruct
 // ActorInfoTopic represents a subtree under the test run's sync tree
 // where peers participating in this distributed test advertise their attributes
 var ActorInfoTopic = sync.NewTopic("actor-info", &sim.ActorInfo{})
+var ReadyStateActorInfoSync = sync.State("actor info published")
 
 // ShareInfo wires up all nodes to each other
 func (plan *Plan) ShareInfo(ctx context.Context) error {
-	if err := plan.Client.WaitNetworkInitialized(ctx, plan.Runenv); err != nil {
-		return err
-	}
-
-	if !plan.Runenv.TestSidecar {
-		return nil
-	}
-
 	plan.Runenv.RecordMessage("Getting Actor info: %#v", plan.Actor)
 	actorInfo := plan.Actor.Info(plan.Runenv)
 	// write our own info
@@ -119,15 +114,19 @@ func (plan *Plan) ShareInfo(ctx context.Context) error {
 		return fmt.Errorf("publishing ActorInfo: %w", err)
 	}
 
-	infoCh := make(chan *sim.ActorInfo)
-	sub, err := plan.Client.Subscribe(ctx, ActorInfoTopic, infoCh)
+	// wait until all instances have published their actor info
+	plan.Client.MustSignalEntry(ctx, ReadyStateActorInfoSync)
+	<-plan.Client.MustBarrier(ctx, ReadyStateActorInfoSync, plan.Runenv.TestInstanceCount).C
+
+	actorInfoCh := make(chan *sim.ActorInfo)
+	sub, err := plan.Client.Subscribe(ctx, ActorInfoTopic, actorInfoCh)
 	if err != nil {
 		return fmt.Errorf("node info subscription failure: %w", err)
 	}
 
 	for i := 0; i < plan.Runenv.TestInstanceCount; i++ {
 		select {
-		case info := <-infoCh:
+		case info := <-actorInfoCh:
 			if info.PeerID == actorInfo.PeerID {
 				continue
 			}
@@ -150,7 +149,9 @@ func (plan *Plan) ConnectAllNodes(ctx context.Context) error {
 
 	h := plan.Actor.Inst.Node().Host()
 	for _, info := range plan.Others {
-		plan.Runenv.RecordMessage("Connecting to %#v", info)
+		for _, addr := range info.AddrInfo.Addrs {
+			plan.Runenv.RecordMessage("address: %s", addr.String())
+		}
 		if err := h.Connect(ctx, *info.AddrInfo); err != nil {
 			return err
 		}

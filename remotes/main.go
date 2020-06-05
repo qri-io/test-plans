@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/qri-io/test-plans/plan"
 	"github.com/testground/sdk-go/runtime"
 )
 
@@ -14,14 +15,16 @@ func main() {
 
 func run(runenv *runtime.RunEnv) error {
 	ctx := context.Background()
-	plan := NewPlan(ctx, runenv)
-
-	ctx, done := context.WithTimeout(ctx, plan.Cfg.Timeout)
-	defer done()
+	p := plan.NewPlan(ctx, runenv)
+	ctx, done := context.WithTimeout(ctx, p.Cfg.Timeout)
+	defer func() {
+		p.Client.Close()
+		done()
+	}()
 
 	switch c := runenv.TestCase; c {
-	case "remote-push":
-		return RunPlanRemotePushPull(ctx, plan)
+	case "push":
+		return RunPlanRemotePushPull(ctx, p)
 	default:
 		msg := fmt.Sprintf("Unknown TestCase %s", c)
 		return errors.New(msg)

@@ -162,7 +162,7 @@ func (a *Actor) GenerateDatasetVersion(name string, numRows int) error {
 	}
 
 	ref := &reporef.DatasetRef{}
-	return lib.NewDatasetRequestsInstance(a.Inst).Save(p, ref)
+	return lib.NewDatasetMethods(a.Inst).Save(p, ref)
 }
 
 func generateRandomCSVFile(numRows int) (string, error) {

@@ -1,7 +1,7 @@
-name = "qri"
+name = "remotes"
 # hashicorp/go-getter URLs, so in the future we can support fetching test plans
 # from GitHub.
-source_path = "file://${TESTGROUND_SRCDIR}/plans/qri"
+source_path = "file://${TESTGROUND_HOME}/plans/remotes"
 
 [defaults]
 builder = "exec:go"
@@ -10,13 +10,13 @@ runner = "local:exec"
 [builders."docker:go"]
 enabled = true
 go_version = "1.13"
-module_path = "github.com/qri-io/test-plans"
+module_path = "github.com/qri-io/test-plans/remotes"
 exec_pkg = "."
 go_ipfs_version = "0.4.21"
 
 [builders."exec:go"]
 enabled = true
-module_path = "github.com/qri-io/test-plans"
+module_path = "github.com/qri-io/test-plans/remotes"
 exec_pkg = "."
 
 [runners."local:docker"]
@@ -29,7 +29,7 @@ enabled = true
 enabled = true
 
 [[testcases]]
-name = "remote-push"
+name = "push"
 instances = { min = 2, max = 200, default = 2 }
   [testcases.params]
   timeout_secs = { type = "int", desc = "test timeout", unit = "seconds", default = 300 }

@@ -46,7 +46,7 @@ func (r *RemoteHooks) acceptPushFinalCheck(ctx context.Context, pid profile.ID, 
 }
 
 func (r *RemoteHooks) datasetPushed(ctx context.Context, pid profile.ID, ref reporef.DatasetRef) error {
-	r.runenv.Message("RemoteHooks.datasetPushed pid %s ref %s", pid, ref.String())
+	r.runenv.RecordMessage("RemoteHooks.datasetPushed pid %s ref %s", pid, ref.String())
 	// def := runtime.MetricDefinition{
 	// 	Name:           "donkeypower",
 	// 	Unit:           "kiloforce",
@@ -63,7 +63,7 @@ func (r *RemoteHooks) datasetPullPreCheck(ctx context.Context, pid profile.ID, r
 }
 
 func (r *RemoteHooks) datasetPulled(ctx context.Context, pid profile.ID, ref reporef.DatasetRef) error {
-	r.runenv.Message("RemoteHooks.datasetPulled: %s", ref.String())
+	r.runenv.RecordMessage("RemoteHooks.datasetPulled: %s", ref.String())
 
 	return nil
 }
