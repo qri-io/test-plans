@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/libp2p/go-libp2p-core/peerstore"
+	"github.com/qri-io/test-plans/sim"
 	"github.com/testground/sdk-go/network"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
-
-	"github.com/qri-io/test-plans/sim"
 )
 
 // PlanConfig encapsulates test plan paremeters
@@ -34,6 +34,7 @@ type Plan struct {
 	Runenv    *runtime.RunEnv
 	Client    *sync.Client
 	finishedC <-chan error
+	Seq       int64
 
 	Actor  *sim.Actor
 	Others map[string]*sim.ActorInfo
@@ -42,12 +43,14 @@ type Plan struct {
 // NewPlan creates a plan instance from runtime data
 func NewPlan(ctx context.Context, runenv *runtime.RunEnv) *Plan {
 	client := sync.MustBoundClient(ctx, runenv)
+	seq := client.MustSignalAndWait(ctx, "assign-seq", runenv.TestInstanceCount)
 
 	return &Plan{
 		Cfg:       PlanConfigFromRuntimeEnv(runenv),
 		Runenv:    runenv,
 		Client:    client,
 		finishedC: client.MustBarrier(ctx, FinishedState, runenv.TestInstanceCount).C,
+		Seq:       seq,
 
 		Others: map[string]*sim.ActorInfo{},
 	}
@@ -91,11 +94,18 @@ func (plan *Plan) SetupNetwork(ctx context.Context) error {
 // ActorConstructor is a function that creates an actor
 type ActorConstructor func(context.Context, *Plan) (*sim.Actor, error)
 
+// ReadyStateConstructed is the state to sync on to ensure all
+// actors have been constructed before moving on
+var ReadyStateConstructed = sync.State("actor constructed")
+
 // ConstructActor creates an actor and assigns it to the plan
 // it's mainly sugar for presnting a uniform plan execution API
 func (plan *Plan) ConstructActor(ctx context.Context, constructor ActorConstructor) error {
 	var err error
 	plan.Actor, err = constructor(ctx, plan)
+	// wait until all instances have been constructed
+	plan.Client.MustSignalEntry(ctx, ReadyStateConstructed)
+	<-plan.Client.MustBarrier(ctx, ReadyStateConstructed, plan.Runenv.TestInstanceCount).C
 	return err
 }
 
@@ -104,12 +114,14 @@ func (plan *Plan) ConstructActor(ctx context.Context, constructor ActorConstruct
 var ActorInfoTopic = sync.NewTopic("actor-info", &sim.ActorInfo{})
 var ReadyStateActorInfoSync = sync.State("actor info published")
 
-// ShareInfo wires up all nodes to each other
+// ShareInfo sends the nodes AddrInfo to all other nodes
+// as well as stores the other nodes info in its peerstore
 func (plan *Plan) ShareInfo(ctx context.Context) error {
 	plan.Runenv.RecordMessage("Getting Actor info: %#v", plan.Actor)
+	// get this node's actor info
 	actorInfo := plan.Actor.Info(plan.Runenv)
-	// write our own info
 
+	// send actor infor over the `ActorInfoTopic`
 	if _, err := plan.Client.Publish(ctx, ActorInfoTopic, actorInfo); err != nil {
 		return fmt.Errorf("publishing ActorInfo: %w", err)
 	}
@@ -118,45 +130,33 @@ func (plan *Plan) ShareInfo(ctx context.Context) error {
 	plan.Client.MustSignalEntry(ctx, ReadyStateActorInfoSync)
 	<-plan.Client.MustBarrier(ctx, ReadyStateActorInfoSync, plan.Runenv.TestInstanceCount).C
 
+	// subscribe to the ActorInfoTopic
 	actorInfoCh := make(chan *sim.ActorInfo)
 	sub, err := plan.Client.Subscribe(ctx, ActorInfoTopic, actorInfoCh)
 	if err != nil {
 		return fmt.Errorf("node info subscription failure: %w", err)
 	}
 
+	// for each node, wait on the actorInfoCh
+	// if it is our own actor info, continue
+	// otherwise add this info to our plan
+	// and add the AddrInfo to our peerstore
 	for i := 0; i < plan.Runenv.TestInstanceCount; i++ {
 		select {
 		case info := <-actorInfoCh:
-			if info.PeerID == actorInfo.PeerID {
+			if info.ProfileID == actorInfo.ProfileID {
 				continue
 			}
-			plan.Others[info.PeerID] = info
+			// keep record of AddrInfo
+			plan.Others[info.ProfileID] = info
+			// add AddrInfo to host's peerstore book
+			plan.Actor.Inst.Node().Host().Peerstore().AddAddrs(info.AddrInfo.ID, info.AddrInfo.Addrs, peerstore.PermanentAddrTTL)
 		case err := <-sub.Done():
 			return err
 		}
 	}
 
 	plan.Runenv.RecordMessage("Shared Info")
-	return nil
-}
-
-// ConnectAllNodes wires each node to the other node
-func (plan *Plan) ConnectAllNodes(ctx context.Context) error {
-	plan.Runenv.RecordMessage("Connecting to all nodes")
-	if err := plan.ShareInfo(ctx); err != nil {
-		return err
-	}
-
-	h := plan.Actor.Inst.Node().Host()
-	for _, info := range plan.Others {
-		for _, addr := range info.AddrInfo.Addrs {
-			plan.Runenv.RecordMessage("address: %s", addr.String())
-		}
-		if err := h.Connect(ctx, *info.AddrInfo); err != nil {
-			return err
-		}
-	}
-	plan.Runenv.RecordMessage("Connected to all nodes")
 	return nil
 }
 
