@@ -9,7 +9,7 @@ runner = "local:exec"
 
 [builders."docker:go"]
 enabled = true
-go_version = "1.13"
+go_version = "1.14"
 module_path = "github.com/qri-io/test-plans/remotes"
 exec_pkg = "."
 go_ipfs_version = "0.4.21"
@@ -34,3 +34,5 @@ instances = { min = 2, max = 200, default = 2 }
   [testcases.params]
   timeout_secs = { type = "int", desc = "test timeout", unit = "seconds", default = 300 }
   latency      = { type = "int", desc = "latency between peers", unit = "ms", default = 100 }
+  datasetSize     = { type = "int", desc = "size of the dataset to be pushed", unit = "bytes", default = 1000 }
+  pushersPerReceiver     = { type = "int", desc = "number of pusher instances we want to have for each receiver instance. Will error if this number is more then the number of instances in the test case", default = 1 }
