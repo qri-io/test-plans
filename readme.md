@@ -24,8 +24,8 @@ $ testground plan import --from ./remotes
 # make sure the testground daemon is running in a separate terminal
 $ testground daemon
 
-# to run the `pull` test locally with two instances:
-$ testground run single --plan remotes --testcase pull --builder exec:go --runner exec:local --instances 2
+# to run the `push` test locally with two instances:
+$ testground run single --plan remotes --testcase push --builder exec:go --runner exec:local --instances 2
 ```
 
 # Test Plan Goals
