@@ -1263,6 +1263,9 @@ github.com/qri-io/qfs v0.1.1-0.20200611165444-31e408337a73/go.mod h1:9gttXzuN7ob
 github.com/qri-io/qfs v0.1.1-0.20200623175200-23690284798a/go.mod h1:NP4Va1b0/V4nbyPdX3FmZ4cJTPatn0d5FZF5GBxcIJA=
 github.com/qri-io/qfs v0.5.1-0.20200707135951-3bfbba3e1698 h1:2veCmB2lKBF+JILdzQ23DXOJ9nE46fvfzQQRu1rrFYo=
 github.com/qri-io/qfs v0.5.1-0.20200707135951-3bfbba3e1698/go.mod h1:NP4Va1b0/V4nbyPdX3FmZ4cJTPatn0d5FZF5GBxcIJA=
+github.com/qri-io/qfs v0.5.1-0.20200708234218-75277f16442d/go.mod h1:NP4Va1b0/V4nbyPdX3FmZ4cJTPatn0d5FZF5GBxcIJA=
+github.com/qri-io/qfs v0.5.1-0.20200708235335-ab7489aaf5d4 h1:Y7MFCEiM597BsojZpD2IpufGqDGbUSnM1nRJqO5zYzI=
+github.com/qri-io/qfs v0.5.1-0.20200708235335-ab7489aaf5d4/go.mod h1:NP4Va1b0/V4nbyPdX3FmZ4cJTPatn0d5FZF5GBxcIJA=
 github.com/qri-io/qri v0.9.9-0.20200519200018-89552763de2f h1:h8JUIqaZRfIWaDI8XolIrc7wtpQZWfwOJzKCeF7XH3w=
 github.com/qri-io/qri v0.9.9-0.20200519200018-89552763de2f/go.mod h1:7eWPhn1QKT5blVptS5z21KIuKpciQeGXv9fS1mFcFxo=
 github.com/qri-io/qri v0.9.9-0.20200617130312-66c6a005b23d h1:QO5zE33Es3yNhNX3QGIlTH8KN9rsgVEq9YMj3MqoBjw=
@@ -1301,6 +1304,8 @@ github.com/qri-io/qri v0.9.9-0.20200619032448-3eb444744aad h1:Zj69ZcyEoG6SNJz1cC
 github.com/qri-io/qri v0.9.9-0.20200619032448-3eb444744aad/go.mod h1:8xWBHbgErAkewlpMZKyTJ2/8BeKkl1LB7M+tnSdabto=
 github.com/qri-io/qri v0.9.10-0.20200707140952-561daf500c06 h1:/1GsBqLgChbj/GWiSNgcjnBkDGgLXPYrjpsYL/pkf6A=
 github.com/qri-io/qri v0.9.10-0.20200707140952-561daf500c06/go.mod h1:0Pj6bYJzG6FSO1TTn+QWmblChpxnjWP22SoQ9VWlsDk=
+github.com/qri-io/qri v0.9.10-0.20200714200638-69c018603e2e h1:Y7iIyIPiZTr9SUvvS7y+qmyU8dns5GGvMnLt/rBfbbo=
+github.com/qri-io/qri v0.9.10-0.20200714200638-69c018603e2e/go.mod h1:qhQNapYjD6ixk+9F8fC/2J8jjVL7ooGNowP3qLNrlkM=
 github.com/qri-io/starlib v0.4.2-0.20200406084526-0e4566b610a1 h1:5b7Tt8wMngs2Bj8U9OOhjLYtCidL5TH9Sa/EQsFgTIs=
 github.com/qri-io/starlib v0.4.2-0.20200406084526-0e4566b610a1/go.mod h1:Nno0nW88BMydkiYjFYwswcQxQTSYhYAivSdFwlm5l04=
 github.com/qri-io/starlib v0.4.2 h1:ZGzmzT9fOqdluezcwhAZAbTn/v6kMg1tC6ALVjQPhpQ=
@@ -1387,6 +1392,8 @@ github.com/qri-io/test-plans v0.0.0-20200619032631-9e4c8536ed52 h1:m2elPs4JrXMrU
 github.com/qri-io/test-plans v0.0.0-20200619032631-9e4c8536ed52/go.mod h1:8ykoXBCJZu0dQXd9fqbcVeAMuZfg0Wstqnkj7x2Xhqg=
 github.com/qri-io/test-plans v0.0.0-20200708001151-b87612229ade h1:DLJBef3hS4THXYzz3l3qKNl2mykjX8J2gBEqYVQksMo=
 github.com/qri-io/test-plans v0.0.0-20200708001151-b87612229ade/go.mod h1:57I/u5qdJTZ0+CoADCTqMLRCpLIb1zjbXLv53mwSVf4=
+github.com/qri-io/test-plans v0.0.0-20200714201011-aafc32f1777b h1:+bzqCA8f7oN2/EzP2hpc77yOU/eKyNu3SEykRIkFM1g=
+github.com/qri-io/test-plans v0.0.0-20200714201011-aafc32f1777b/go.mod h1:ocHXrPTTw2nHFny4O2nFFb40sNsCugb3w3uTUscgWws=
 github.com/qri-io/varName v0.1.0 h1:dFP5qZHrxnn5fNoMbjfpMCRBYDrOsoyls7R07r+emk0=
 github.com/qri-io/varName v0.1.0/go.mod h1:IGWuuGOHhLJ9ZZg28C/+oMYm1QYP+pAorNZKQpdXhxQ=
 github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0 h1:MkV+77GLUNo5oJ0jf870itWm3D0Sjh7+Za9gazKc5LQ=

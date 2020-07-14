@@ -61,20 +61,31 @@ func RunPlanRemotePushPull(ctx context.Context, p *plan.Plan) error {
 	return <-p.Finished(ctx)
 }
 
-func eventHandlers(ctx context.Context, p *plan.Plan) map[event.Topic]func(interface{}) {
-	return map[event.Topic]func(interface{}){
-		event.ETP2PQriPeerConnected: func(payload interface{}) {
+var eventsToHandle = []event.Type{
+	event.ETP2PQriPeerConnected,
+	event.ETP2PPeerConnected,
+}
+
+// handles events for
+// event.ETP2PQriPeerConnected
+// event.ETP2PPeerConnected
+func eventHandler(ctx context.Context, p *plan.Plan) event.Handler {
+	return func(ctx context.Context, t event.Type, payload interface{}) error {
+		switch t {
+		case event.ETP2PQriPeerConnected:
 			if pro, ok := payload.(*profile.Profile); ok {
 				p.Runenv.RecordMessage("qri peer connected! %#v", pro)
-				// TODO (b5) - attempt to publish to peer just connected to
+				return nil
 			}
-		},
-		event.ETP2PPeerConnected: func(payload interface{}) {
+			return fmt.Errorf("event.ETP2PQriPeerConnected payload not the expected *profile.Profile")
+		case event.ETP2PPeerConnected:
 			if pi, ok := payload.(peer.AddrInfo); ok {
 				p.Runenv.RecordMessage("peer connected: %s", pi.String())
-				p.ActorFinished(ctx)
+				return nil
 			}
-		},
+			return fmt.Errorf("event.ETP2PPeerConnected payload not the expected peer.AddrInfo")
+		}
+		return nil
 	}
 }
 
@@ -107,13 +118,7 @@ var rt = sync.NewTopic("remote-info", &remoteInfo{})
 var remoteInfoSent = sync.State("remote info sent")
 
 func newPusher(ctx context.Context, p *plan.Plan) (*sim.Actor, error) {
-	opt := func(cfg *sim.Config) {
-		// pusher doesn't accept datasets
-		cfg.QriConfig.Remote.Enabled = false
-		cfg.EventHandlers = eventHandlers(ctx, p)
-	}
-
-	act, err := sim.NewActor(ctx, p.Runenv, p.Client, p.Seq, opt)
+	act, err := sim.NewActor(ctx, p.Runenv, p.Client, p.Seq, lib.OptEventHandler(eventHandler(ctx, p), eventsToHandle...))
 	if err != nil {
 		return nil, err
 	}
@@ -145,15 +150,6 @@ func newPusher(ctx context.Context, p *plan.Plan) (*sim.Actor, error) {
 		p.Runenv.RecordMessage("received remote info from %q", r.Peername)
 	}
 
-	// notifee := &net.NotifyBundle{
-	// 	ConnectedF: func(_ net.Network, conn net.Conn) {
-	// 		p.Runenv.RecordMessage("peer connected in notifee! %#v", conn)
-	// 		p.ActorFinished(ctx)
-	// 	},
-	// }
-
-	// act.Inst.Node().Host().Network().Notify(notifee)
-
 	p.Runenv.RecordMessage("I'm a Pusher named %s", act.Peername())
 	p.Runenv.RecordMessage("My qri ID is %s", act.ID())
 	p.Runenv.RecordMessage("My peer ID is %s", act.AddrInfo().ID)
@@ -162,13 +158,12 @@ func newPusher(ctx context.Context, p *plan.Plan) (*sim.Actor, error) {
 }
 
 func newReceiver(ctx context.Context, p *plan.Plan) (*sim.Actor, error) {
-	opt := func(cfg *sim.Config) {
-		// ensure remote is enabled
-		cfg.QriConfig.Remote.Enabled = true
-		cfg.EventHandlers = eventHandlers(ctx, p)
+	opts := []lib.Option{
+		lib.OptEnableRemote(),
+		lib.OptEventHandler(eventHandler(ctx, p), eventsToHandle...),
 	}
 
-	act, err := sim.NewActor(ctx, p.Runenv, p.Client, p.Seq, opt)
+	act, err := sim.NewActor(ctx, p.Runenv, p.Client, p.Seq, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -248,6 +243,7 @@ func pusherActions(ctx context.Context, p *plan.Plan) error {
 	if err := pushToAllRemotes(ctx, p); err != nil {
 		return err
 	}
+	p.ActorFinished(ctx)
 	return nil
 }
 
@@ -276,5 +272,6 @@ func receiverActions(ctx context.Context, p *plan.Plan) error {
 			p.Runenv.RecordMessage("   %s/%s", ref, l.Name())
 		}
 	}
+	p.ActorFinished(ctx)
 	return nil
 }
