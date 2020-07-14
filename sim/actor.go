@@ -14,7 +14,6 @@ import (
 	"github.com/qri-io/ioes"
 	"github.com/qri-io/qfs"
 	"github.com/qri-io/qri/config"
-	"github.com/qri-io/qri/event"
 	"github.com/qri-io/qri/lib"
 	"github.com/qri-io/qri/repo/gen"
 	reporef "github.com/qri-io/qri/repo/ref"
@@ -26,18 +25,10 @@ import (
 
 var (
 	qriRepoPath string
-	// qriRepoPath, ipfsRepoPath string
 )
 
 func init() {
 	qriRepoPath, _ = ioutil.TempDir("", "qri")
-	// ipfsRepoPath, _ = ioutil.TempDir("", "ipfs")
-}
-
-// Config
-type Config struct {
-	QriConfig     *config.Config
-	EventHandlers map[event.Topic]func(payload interface{})
 }
 
 // Actor is a peer in a network simulation
@@ -47,15 +38,8 @@ type Actor struct {
 }
 
 // NewActor creates an actor instance
-func NewActor(ctx context.Context, runenv *runtime.RunEnv, client *sync.Client, seq int64, opts ...func(cfg *Config)) (*Actor, error) {
-	cfg := &Config{
-		QriConfig: defaultQriActorConfig(),
-	}
-	for _, opt := range opts {
-		opt(cfg)
-	}
-
-	if err := setup(cfg); err != nil {
+func NewActor(ctx context.Context, runenv *runtime.RunEnv, client *sync.Client, seq int64, opts ...lib.Option) (*Actor, error) {
+	if err := setup(defaultQriActorConfig()); err != nil {
 		return nil, err
 	}
 
@@ -64,6 +48,10 @@ func NewActor(ctx context.Context, runenv *runtime.RunEnv, client *sync.Client, 
 	libOpts := []lib.Option{
 		lib.OptIOStreams(ioes.NewStdIOStreams()),
 		hooks.RemoteOptionsFunc(),
+		lib.OptNoBootstrap(),
+	}
+	for _, opt := range opts {
+		libOpts = append(libOpts, opt)
 	}
 
 	inst, err := lib.NewInstance(ctx, qriRepoPath, libOpts...)
@@ -76,34 +64,20 @@ func NewActor(ctx context.Context, runenv *runtime.RunEnv, client *sync.Client, 
 		hooks: hooks,
 	}
 
-	go act.subscribe(cfg.EventHandlers)
 	return act, nil
 }
 
 // setup initializes on-disk IPFS & qri repos, generates private keys
-func setup(cfg *Config) error {
+func setup(cfg *config.Config) error {
 	p := lib.SetupParams{
-		SetupIPFS:       true,
-		Register:        false,
-		Config:          cfg.QriConfig,
-		Generator:       gen.NewCryptoSource(),
-		RepoPath:        qriRepoPath,
-		EnableBootstrap: false,
+		SetupIPFS: true,
+		Register:  false,
+		Config:    cfg,
+		Generator: gen.NewCryptoSource(),
+		RepoPath:  qriRepoPath,
 	}
 
 	return lib.Setup(p)
-}
-
-func (a *Actor) subscribe(handlers map[event.Topic]func(payload interface{})) {
-	topics := make([]event.Topic, 0, len(handlers))
-	for t := range handlers {
-		topics = append(topics, t)
-	}
-	fmt.Printf("subscribing to events: %v\n%v\n", topics, handlers)
-	events := a.Inst.Bus().Subscribe(topics...)
-	for evt := range events {
-		handlers[evt.Topic](evt.Payload)
-	}
 }
 
 // ActorInfo carries details about an actor
