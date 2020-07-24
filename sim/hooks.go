@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/qri-io/qri/dsref"
 	"github.com/qri-io/qri/lib"
 	"github.com/qri-io/qri/remote"
 	"github.com/qri-io/qri/repo/profile"
-	reporef "github.com/qri-io/qri/repo/ref"
 
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
@@ -46,51 +46,51 @@ func (r *RemoteHooks) RemoteOptionsFunc() lib.Option {
 	})
 }
 
-func (r *RemoteHooks) acceptPushPreCheck(ctx context.Context, pid profile.ID, ref reporef.DatasetRef) error {
+func (r *RemoteHooks) acceptPushPreCheck(ctx context.Context, pid profile.ID, ref dsref.Ref) error {
 	r.runenv.RecordMessage("received push of dataset %q from %q", ref, pid)
 	return nil
 }
 
-func (r *RemoteHooks) acceptPushFinalCheck(ctx context.Context, pid profile.ID, ref reporef.DatasetRef) error {
+func (r *RemoteHooks) acceptPushFinalCheck(ctx context.Context, pid profile.ID, ref dsref.Ref) error {
 	r.runenv.RecordMessage("dataset %q from %q to start sending", ref, pid)
 	return nil
 }
 
-func (r *RemoteHooks) datasetPushed(ctx context.Context, pid profile.ID, ref reporef.DatasetRef) error {
+func (r *RemoteHooks) datasetPushed(ctx context.Context, pid profile.ID, ref dsref.Ref) error {
 	r.runenv.RecordMessage("Success! Received dataset %q from %q", ref, pid)
 	r.client.MustSignalEntry(ctx, StatePushAttempted)
 	return nil
 }
 
-func (r *RemoteHooks) datasetPullPreCheck(ctx context.Context, pid profile.ID, ref reporef.DatasetRef) error {
+func (r *RemoteHooks) datasetPullPreCheck(ctx context.Context, pid profile.ID, ref dsref.Ref) error {
 
 	return nil
 }
 
-func (r *RemoteHooks) datasetPulled(ctx context.Context, pid profile.ID, ref reporef.DatasetRef) error {
+func (r *RemoteHooks) datasetPulled(ctx context.Context, pid profile.ID, ref dsref.Ref) error {
 	r.runenv.RecordMessage("RemoteHooks.datasetPulled: %s", ref.String())
 
 	return nil
 }
 
-func (r *RemoteHooks) datasetRemoved(ctx context.Context, pid profile.ID, ref reporef.DatasetRef) error {
+func (r *RemoteHooks) datasetRemoved(ctx context.Context, pid profile.ID, ref dsref.Ref) error {
 	// log.Debug("RemoteHooks.datasetRemoved")
 	return nil
 }
 
-func (r *RemoteHooks) logPushPreCheck(ctx context.Context, pid profile.ID, ref reporef.DatasetRef) error {
+func (r *RemoteHooks) logPushPreCheck(ctx context.Context, pid profile.ID, ref dsref.Ref) error {
 	r.runenv.RecordMessage("received log push: %s", ref.String())
 
 	return nil
 }
 
-func (r *RemoteHooks) logPushFinalCheck(ctx context.Context, pid profile.ID, ref reporef.DatasetRef) error {
+func (r *RemoteHooks) logPushFinalCheck(ctx context.Context, pid profile.ID, ref dsref.Ref) error {
 	r.runenv.RecordMessage("log push final check: %s", ref.String())
 
 	return nil
 }
 
-func (r *RemoteHooks) logPushed(ctx context.Context, pid profile.ID, ref reporef.DatasetRef) error {
+func (r *RemoteHooks) logPushed(ctx context.Context, pid profile.ID, ref dsref.Ref) error {
 	r.runenv.RecordMessage("Success!!! RemoteHooks.logPushed: %s", ref.String())
 
 	return nil

@@ -28,7 +28,8 @@ var (
 )
 
 func init() {
-	qriRepoPath, _ = ioutil.TempDir("", "qri")
+	tempDir, _ := ioutil.TempDir("", "remote_test_path")
+	qriRepoPath = filepath.Join(tempDir, "qri")
 }
 
 // Actor is a peer in a network simulation
@@ -138,6 +139,9 @@ func (a *Actor) GenerateDatasetVersion(name string, numRows int) error {
 	ref := &reporef.DatasetRef{}
 	return lib.NewDatasetMethods(a.Inst).Save(p, ref)
 }
+
+// // MarkDatasetAsPublished
+// func (a *Actor)
 
 func generateRandomCSVFile(numRows int) (string, error) {
 	st := &dataset.Structure{

@@ -940,6 +940,8 @@ github.com/matttproud/golang_protobuf_extensions v1.0.1 h1:4hp9jkHxhMHkqkrB3Ix0j
 github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5Ld7szi9bcBfOoFv/3dc6xSMkL2PC0=
 github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b h1:j7+1HpAFS1zy5+Q4qx1fWh90gTKwiN4QCGoY9TWyyO4=
 github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b/go.mod h1:01TrycV0kFyexm33Z7vhZRXopbI8J3TDReVlkTgMUxE=
+github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d h1:5PJl274Y63IEHC+7izoQE9x6ikvDFZS2mDVS3drnohI=
+github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d/go.mod h1:01TrycV0kFyexm33Z7vhZRXopbI8J3TDReVlkTgMUxE=
 github.com/microcosm-cc/bluemonday v1.0.1/go.mod h1:hsXNsILzKxV+sX77C5b8FSuKF00vh2OMYv+xgHpAMF4=
 github.com/microcosm-cc/bluemonday v1.0.2 h1:5lPfLTTAvAbtS0VqT+94yOtFnGfUWYyx0+iToC3Os3s=
 github.com/microcosm-cc/bluemonday v1.0.2/go.mod h1:iVP4YcDBq+n/5fb23BhYFvIMq/leAFZyRl6bYmGDlGc=
@@ -1168,6 +1170,8 @@ github.com/qri-io/qri v0.9.10-0.20200714193655-eaa8f2d024c2 h1:Q7pZzz1Ef571oYW4Y
 github.com/qri-io/qri v0.9.10-0.20200714193655-eaa8f2d024c2/go.mod h1:qhQNapYjD6ixk+9F8fC/2J8jjVL7ooGNowP3qLNrlkM=
 github.com/qri-io/qri v0.9.10-0.20200714200638-69c018603e2e h1:Y7iIyIPiZTr9SUvvS7y+qmyU8dns5GGvMnLt/rBfbbo=
 github.com/qri-io/qri v0.9.10-0.20200714200638-69c018603e2e/go.mod h1:qhQNapYjD6ixk+9F8fC/2J8jjVL7ooGNowP3qLNrlkM=
+github.com/qri-io/qri v0.9.10-0.20200722133123-5e40437abe70 h1:uzkJ0ydKEJOpf62cuUl6PZeuT7PeNiAzlPKrtveFy/g=
+github.com/qri-io/qri v0.9.10-0.20200722133123-5e40437abe70/go.mod h1:bCgFyCbM3hhdbuzOtWIuLzHdEaDQbFAstV5z7AASYXg=
 github.com/qri-io/starlib v0.4.2 h1:ZGzmzT9fOqdluezcwhAZAbTn/v6kMg1tC6ALVjQPhpQ=
 github.com/qri-io/starlib v0.4.2/go.mod h1:2xlZ9r2UV4LF4G9mpYPBWo7CtXtdW0h1RoGIkZ8elOE=
 github.com/qri-io/varName v0.1.0 h1:dFP5qZHrxnn5fNoMbjfpMCRBYDrOsoyls7R07r+emk0=
