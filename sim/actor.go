@@ -16,7 +16,6 @@ import (
 	"github.com/qri-io/qri/config"
 	"github.com/qri-io/qri/lib"
 	"github.com/qri-io/qri/repo/gen"
-	reporef "github.com/qri-io/qri/repo/ref"
 
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/testground/sdk-go/runtime"
@@ -136,8 +135,8 @@ func (a *Actor) GenerateDatasetVersion(name string, numRows int) error {
 		BodyPath: csvFilepath,
 	}
 
-	ref := &reporef.DatasetRef{}
-	return lib.NewDatasetMethods(a.Inst).Save(p, ref)
+	ds := &dataset.Dataset{}
+	return lib.NewDatasetMethods(a.Inst).Save(p, ds)
 }
 
 // // MarkDatasetAsPublished
@@ -227,5 +226,8 @@ func defaultQriActorConfig() *config.Config {
 		},
 		CLI: &config.CLI{},
 		RPC: &config.RPC{},
+		Registry: &config.Registry{
+			Location: "",
+		},
 	}
 }

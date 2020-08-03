@@ -25,6 +25,10 @@ func run(runenv *runtime.RunEnv) error {
 	switch c := runenv.TestCase; c {
 	case "push":
 		return RunPlanRemotePushPull(ctx, p)
+	case "pull":
+		return RunPlanRemotePull(ctx, p)
+	// case "profileExchange":
+	// return RunPlanProfileExchange(ctx, p)
 	default:
 		msg := fmt.Sprintf("Unknown TestCase %s", c)
 		return errors.New(msg)

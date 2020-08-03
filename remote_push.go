@@ -208,13 +208,13 @@ func pushToAllRemotes(ctx context.Context, p *plan.Plan) error {
 
 	// iterate over each remote and attempt to push to each
 	for name := range *remotes {
-		pp := &lib.PublicationParams{
+		pp := &lib.PushParams{
 			Ref:        fmt.Sprintf("%s/%s", p.Actor.Peername(), datasetName),
 			RemoteName: name,
 			All:        true,
 		}
 		ref := &dsref.Ref{}
-		if err := rm.Publish(pp, ref); err != nil {
+		if err := rm.Push(pp, ref); err != nil {
 			accErr = accumulateErrors(accErr, fmt.Errorf("error pushing %q to %q: %s", pp.Ref, pp.RemoteName, err))
 		}
 	}

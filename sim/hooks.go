@@ -21,6 +21,13 @@ var (
 	// push its dataset to all remotes, regardless of if the attempt was
 	// successful
 	StatePushAttempted = sync.State("push to all remotes attempted")
+	// StatePullAttempted is the state to sync on once a puller has tried
+	// pull a dataset from each remote, regardless of if the attempt was
+	// successful
+	StatePullAttempted = sync.State("pull from all remotes attempted")
+	// StateConnectionAttempted is the state to sync on once an instance has attempted
+	// to connect to each other instance
+	StateConnectionAttempted = sync.State("connection to all other nodes attempted")
 )
 
 // RemoteHooks implements remote behaviour for cloud backend to store and pin

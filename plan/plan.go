@@ -3,6 +3,7 @@ package plan
 import (
 	"context"
 	"fmt"
+	wg "sync"
 	"time"
 
 	"github.com/libp2p/go-libp2p-core/peerstore"
@@ -35,6 +36,7 @@ type Plan struct {
 	Client    *sync.Client
 	finishedC <-chan error
 	Seq       int64
+	Wg        *wg.WaitGroup
 
 	Actor  *sim.Actor
 	Others map[string]*sim.ActorInfo
@@ -51,6 +53,7 @@ func NewPlan(ctx context.Context, runenv *runtime.RunEnv) *Plan {
 		Client:    client,
 		finishedC: client.MustBarrier(ctx, FinishedState, runenv.TestInstanceCount).C,
 		Seq:       seq,
+		Wg:        &wg.WaitGroup{},
 
 		Others: map[string]*sim.ActorInfo{},
 	}
