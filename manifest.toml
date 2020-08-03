@@ -45,3 +45,10 @@ instances = { min = 2, max = 200, default = 2 }
   latency      = { type = "int", desc = "latency between peers", unit = "ms", default = 100 }
   datasetSize     = { type = "int", desc = "size of the dataset to be pushed", unit = "bytes", default = 1000 }
   pullersPerRemote     = { type = "int", desc = "number of pusher instances we want to have for each receiver instance. Will error if this number is more then the number of instances in the test case", default = 1 }
+
+[[testcases]]
+name = "profileExchange"
+instances = { min = 2, max = 200, default = 2 }
+  [testcases.params]
+  timeout_secs = { type = "int", desc = "test timeout", unit = "seconds", default = 300 }
+  latency      = { type = "int", desc = "latency between peers", unit = "ms", default = 100 }

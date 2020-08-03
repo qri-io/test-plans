@@ -27,8 +27,8 @@ func run(runenv *runtime.RunEnv) error {
 		return RunPlanRemotePushPull(ctx, p)
 	case "pull":
 		return RunPlanRemotePull(ctx, p)
-	// case "profileExchange":
-	// return RunPlanProfileExchange(ctx, p)
+	case "profileExchange":
+		return RunPlanProfileExchange(ctx, p)
 	default:
 		msg := fmt.Sprintf("Unknown TestCase %s", c)
 		return errors.New(msg)
