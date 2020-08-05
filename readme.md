@@ -15,17 +15,14 @@ Make sure you have your `TESTGROUND_HOME` env variable set, if you want your tes
 # clone qri-io/test-plans
 $ git clone https://github.com/qri-io/test-plans.git
 
-# navigate to test-plans repo
-$ cd test-plans
-
 # to add the `remotes` test plan to testgrounds (via symlink)
-$ testground plan import --from ./remotes
+$ testground plan import --from ./test-plans --name qri
 
 # make sure the testground daemon is running in a separate terminal
 $ testground daemon
 
 # to run the `push` test locally with two instances:
-$ testground run single --plan remotes --testcase push --builder exec:go --runner exec:local --instances 2
+$ testground run single --plan qri --testcase push --builder exec:go --runner exec:local --instances 2
 ```
 
 # Test Plan Goals
