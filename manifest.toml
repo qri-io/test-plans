@@ -1,0 +1,54 @@
+name = "qri"
+# hashicorp/go-getter URLs, so in the future we can support fetching test plans
+# from GitHub.
+source_path = "file://${TESTGROUND_HOME}/plans/qri"
+
+[defaults]
+builder = "exec:go"
+runner = "local:exec"
+
+[builders."docker:go"]
+enabled = true
+go_version = "1.14"
+module_path = "github.com/qri-io/test-plans"
+exec_pkg = "."
+go_ipfs_version = "0.4.21"
+
+[builders."exec:go"]
+enabled = true
+module_path = "github.com/qri-io/test-plans"
+exec_pkg = "."
+
+[runners."local:docker"]
+enabled = true
+
+[runners."local:exec"]
+enabled = true
+
+[runners."cluster:swarm"]
+enabled = true
+
+[[testcases]]
+name = "push"
+instances = { min = 2, max = 200, default = 2 }
+  [testcases.params]
+  timeout_secs = { type = "int", desc = "test timeout", unit = "seconds", default = 300 }
+  latency      = { type = "int", desc = "latency between peers", unit = "ms", default = 100 }
+  datasetSize     = { type = "int", desc = "size of the dataset to be pushed", unit = "bytes", default = 1000 }
+  pushersPerReceiver     = { type = "int", desc = "number of pusher instances we want to have for each receiver instance. Will error if this number is more then the number of instances in the test case", default = 1 }
+
+[[testcases]]
+name = "pull"
+instances = { min = 2, max = 200, default = 2 }
+  [testcases.params]
+  timeout_secs = { type = "int", desc = "test timeout", unit = "seconds", default = 300 }
+  latency      = { type = "int", desc = "latency between peers", unit = "ms", default = 100 }
+  datasetSize     = { type = "int", desc = "size of the dataset to be pushed", unit = "bytes", default = 1000 }
+  pullersPerRemote     = { type = "int", desc = "number of pusher instances we want to have for each receiver instance. Will error if this number is more then the number of instances in the test case", default = 1 }
+
+[[testcases]]
+name = "profileExchange"
+instances = { min = 2, max = 200, default = 2 }
+  [testcases.params]
+  timeout_secs = { type = "int", desc = "test timeout", unit = "seconds", default = 300 }
+  latency      = { type = "int", desc = "latency between peers", unit = "ms", default = 100 }

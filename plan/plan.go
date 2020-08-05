@@ -1,15 +1,16 @@
-package main
+package plan
 
 import (
 	"context"
 	"fmt"
-	"os"
+	wg "sync"
 	"time"
 
+	"github.com/libp2p/go-libp2p-core/peerstore"
+	"github.com/qri-io/test-plans/sim"
+	"github.com/testground/sdk-go/network"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
-
-	"github.com/qri-io/test-plans/sim"
 )
 
 // PlanConfig encapsulates test plan paremeters
@@ -34,6 +35,8 @@ type Plan struct {
 	Runenv    *runtime.RunEnv
 	Client    *sync.Client
 	finishedC <-chan error
+	Seq       int64
+	Wg        *wg.WaitGroup
 
 	Actor  *sim.Actor
 	Others map[string]*sim.ActorInfo
@@ -42,13 +45,15 @@ type Plan struct {
 // NewPlan creates a plan instance from runtime data
 func NewPlan(ctx context.Context, runenv *runtime.RunEnv) *Plan {
 	client := sync.MustBoundClient(ctx, runenv)
-	defer client.Close()
+	seq := client.MustSignalAndWait(ctx, "assign-seq", runenv.TestInstanceCount)
 
 	return &Plan{
 		Cfg:       PlanConfigFromRuntimeEnv(runenv),
 		Runenv:    runenv,
 		Client:    client,
 		finishedC: client.MustBarrier(ctx, FinishedState, runenv.TestInstanceCount).C,
+		Seq:       seq,
+		Wg:        &wg.WaitGroup{},
 
 		Others: map[string]*sim.ActorInfo{},
 	}
@@ -59,103 +64,102 @@ func (plan *Plan) SetupNetwork(ctx context.Context) error {
 	if !plan.Runenv.TestSidecar {
 		return nil
 	}
+	// hostname, err := os.Hostname()
+	// if err != nil {
+	// 	return err
+	// }
 
-	hostname, err := os.Hostname()
-	if err != nil {
-		return err
-	}
-
-	ntwkCfg := sync.NetworkConfig{
+	ntwkCfg := network.Config{
 		// Control the "default" network. At the moment, this is the only network.
 		Network: "default",
 
 		// Enable this network. Setting this to false will disconnect this test
 		// instance from this network. You probably don't want to do that.
 		Enable: true,
-		Default: sync.LinkShape{
+		Default: network.LinkShape{
 			Latency:   plan.Cfg.Latency,
 			Bandwidth: 10 << 20, // 10Mib
 		},
-		State: "network-configured",
+		CallbackState: "network-configured",
 	}
 
-	if _, err = plan.Client.Publish(ctx, sync.NetworkTopic(hostname), &ntwkCfg); err != nil {
-		return err
-	}
+	// if _, err = plan.Client.Publish(ctx, network.Topic(hostname), &ntwkCfg); err != nil {
+	// 	return err
+	// }
 
-	return <-plan.Client.MustBarrier(ctx, ntwkCfg.State, plan.Runenv.TestInstanceCount).C
+	// return <-plan.Client.MustBarrier(ctx, ntwkCfg.CallbackState, plan.Runenv.TestInstanceCount).C
+	netclient := network.NewClient(plan.Client, plan.Runenv)
+	netclient.MustWaitNetworkInitialized(ctx)
+	netclient.MustConfigureNetwork(ctx, &ntwkCfg)
+	return nil
 }
 
 // ActorConstructor is a function that creates an actor
 type ActorConstructor func(context.Context, *Plan) (*sim.Actor, error)
+
+// ReadyStateConstructed is the state to sync on to ensure all
+// actors have been constructed before moving on
+var ReadyStateConstructed = sync.State("actor constructed")
 
 // ConstructActor creates an actor and assigns it to the plan
 // it's mainly sugar for presnting a uniform plan execution API
 func (plan *Plan) ConstructActor(ctx context.Context, constructor ActorConstructor) error {
 	var err error
 	plan.Actor, err = constructor(ctx, plan)
+	// wait until all instances have been constructed
+	plan.Client.MustSignalEntry(ctx, ReadyStateConstructed)
+	<-plan.Client.MustBarrier(ctx, ReadyStateConstructed, plan.Runenv.TestInstanceCount).C
 	return err
 }
 
 // ActorInfoTopic represents a subtree under the test run's sync tree
 // where peers participating in this distributed test advertise their attributes
 var ActorInfoTopic = sync.NewTopic("actor-info", &sim.ActorInfo{})
+var ReadyStateActorInfoSync = sync.State("actor info published")
 
-// ShareInfo wires up all nodes to each other
+// ShareInfo sends the nodes AddrInfo to all other nodes
+// as well as stores the other nodes info in its peerstore
 func (plan *Plan) ShareInfo(ctx context.Context) error {
-	if err := plan.Client.WaitNetworkInitialized(ctx, plan.Runenv); err != nil {
-		return err
-	}
-
-	if !plan.Runenv.TestSidecar {
-		return nil
-	}
-
 	plan.Runenv.RecordMessage("Getting Actor info: %#v", plan.Actor)
+	// get this node's actor info
 	actorInfo := plan.Actor.Info(plan.Runenv)
-	// write our own info
 
+	// send actor infor over the `ActorInfoTopic`
 	if _, err := plan.Client.Publish(ctx, ActorInfoTopic, actorInfo); err != nil {
 		return fmt.Errorf("publishing ActorInfo: %w", err)
 	}
 
-	infoCh := make(chan *sim.ActorInfo)
-	sub, err := plan.Client.Subscribe(ctx, ActorInfoTopic, infoCh)
+	// wait until all instances have published their actor info
+	plan.Client.MustSignalEntry(ctx, ReadyStateActorInfoSync)
+	<-plan.Client.MustBarrier(ctx, ReadyStateActorInfoSync, plan.Runenv.TestInstanceCount).C
+
+	// subscribe to the ActorInfoTopic
+	actorInfoCh := make(chan *sim.ActorInfo)
+	sub, err := plan.Client.Subscribe(ctx, ActorInfoTopic, actorInfoCh)
 	if err != nil {
 		return fmt.Errorf("node info subscription failure: %w", err)
 	}
 
+	// for each node, wait on the actorInfoCh
+	// if it is our own actor info, continue
+	// otherwise add this info to our plan
+	// and add the AddrInfo to our peerstore
 	for i := 0; i < plan.Runenv.TestInstanceCount; i++ {
 		select {
-		case info := <-infoCh:
-			if info.PeerID == actorInfo.PeerID {
+		case info := <-actorInfoCh:
+			if info.ProfileID == actorInfo.ProfileID {
 				continue
 			}
-			plan.Others[info.PeerID] = info
+			// keep record of AddrInfo
+			plan.Others[info.ProfileID] = info
+			// add AddrInfo to host's peerstore book
+			plan.Actor.Inst.Node().Host().Peerstore().AddAddrs(info.AddrInfo.ID, info.AddrInfo.Addrs, peerstore.PermanentAddrTTL)
 		case err := <-sub.Done():
 			return err
 		}
 	}
 
 	plan.Runenv.RecordMessage("Shared Info")
-	return nil
-}
-
-// ConnectAllNodes wires each node to the other node
-func (plan *Plan) ConnectAllNodes(ctx context.Context) error {
-	plan.Runenv.RecordMessage("Connecting to all nodes")
-	if err := plan.ShareInfo(ctx); err != nil {
-		return err
-	}
-
-	h := plan.Actor.Inst.Node().Host()
-	for _, info := range plan.Others {
-		plan.Runenv.RecordMessage("Connecting to %#v", info)
-		if err := h.Connect(ctx, *info.AddrInfo); err != nil {
-			return err
-		}
-	}
-	plan.Runenv.RecordMessage("Connected to all nodes")
 	return nil
 }
 

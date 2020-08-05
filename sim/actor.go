@@ -5,35 +5,30 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/qri-io/dataset"
 	"github.com/qri-io/dataset/dsio"
 	"github.com/qri-io/dataset/generate"
 	"github.com/qri-io/ioes"
+	"github.com/qri-io/qfs"
 	"github.com/qri-io/qri/config"
-	"github.com/qri-io/qri/event"
 	"github.com/qri-io/qri/lib"
 	"github.com/qri-io/qri/repo/gen"
-	reporef "github.com/qri-io/qri/repo/ref"
 
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/testground/sdk-go/runtime"
+	"github.com/testground/sdk-go/sync"
 )
 
 var (
-	qriRepoPath, ipfsRepoPath string
+	qriRepoPath string
 )
 
 func init() {
-	qriRepoPath, _ = ioutil.TempDir("", "qri")
-	ipfsRepoPath, _ = ioutil.TempDir("", "ipfs")
-}
-
-// Config
-type Config struct {
-	QriConfig     *config.Config
-	EventHandlers map[event.Topic]func(payload interface{})
+	tempDir, _ := ioutil.TempDir("", "remote_test_path")
+	qriRepoPath = filepath.Join(tempDir, "qri")
 }
 
 // Actor is a peer in a network simulation
@@ -43,26 +38,22 @@ type Actor struct {
 }
 
 // NewActor creates an actor instance
-func NewActor(ctx context.Context, runenv *runtime.RunEnv, opts ...func(cfg *Config)) (*Actor, error) {
-	cfg := &Config{
-		QriConfig: defaultQriActorConfig(),
-	}
-	for _, opt := range opts {
-		opt(cfg)
-	}
-
-	if err := setup(cfg); err != nil {
+func NewActor(ctx context.Context, runenv *runtime.RunEnv, client *sync.Client, seq int64, opts ...lib.Option) (*Actor, error) {
+	if err := setup(defaultQriActorConfig()); err != nil {
 		return nil, err
 	}
 
-	hooks := &RemoteHooks{runenv: runenv}
+	hooks := &RemoteHooks{runenv: runenv, client: client}
 
 	libOpts := []lib.Option{
 		lib.OptIOStreams(ioes.NewStdIOStreams()),
-		lib.OptSetIPFSPath(ipfsRepoPath),
-		// lib.OptSetLogAll(true),
 		hooks.RemoteOptionsFunc(),
+		lib.OptNoBootstrap(),
 	}
+	for _, opt := range opts {
+		libOpts = append(libOpts, opt)
+	}
+
 	inst, err := lib.NewInstance(ctx, qriRepoPath, libOpts...)
 	if err != nil {
 		return nil, err
@@ -73,54 +64,38 @@ func NewActor(ctx context.Context, runenv *runtime.RunEnv, opts ...func(cfg *Con
 		hooks: hooks,
 	}
 
-	go act.subscribe(cfg.EventHandlers)
 	return act, nil
 }
 
 // setup initializes on-disk IPFS & qri repos, generates private keys
-func setup(cfg *Config) error {
+func setup(cfg *config.Config) error {
 	p := lib.SetupParams{
-		SetupIPFS:   true,
-		Register:    false,
-		Config:      cfg.QriConfig,
-		Generator:   gen.NewCryptoSource(),
-		QriRepoPath: qriRepoPath,
-		IPFSFsPath:  ipfsRepoPath,
+		SetupIPFS: true,
+		Register:  false,
+		Config:    cfg,
+		Generator: gen.NewCryptoSource(),
+		RepoPath:  qriRepoPath,
 	}
 
 	return lib.Setup(p)
 }
 
-func (a *Actor) subscribe(handlers map[event.Topic]func(payload interface{})) {
-	topics := make([]event.Topic, 0, len(handlers))
-	for t := range handlers {
-		topics = append(topics, t)
-	}
-	fmt.Printf("subscribing to events: %v\n%v\n", topics, handlers)
-	events := a.Inst.Bus().Subscribe(topics...)
-	for evt := range events {
-		fmt.Printf("GOT EVENT: %s %#v\n\n", evt.Topic, evt.Payload)
-		handlers[evt.Topic](evt.Payload)
-	}
-}
-
 // ActorInfo carries details about an actor
 type ActorInfo struct {
-	Seq      int // sequence number within the test
-	Peername string
-	PeerID   string
-	AddrInfo *peer.AddrInfo
+	Seq       int // sequence number within the test
+	Peername  string
+	ProfileID string
+	AddrInfo  *peer.AddrInfo
 }
 
 // Info returns details about this actor
 func (a *Actor) Info(runenv *runtime.RunEnv) *ActorInfo {
-	fmt.Printf("actor repo: %v\n", a.Inst.Repo())
 	pro, _ := a.Inst.Repo().Profile()
 	return &ActorInfo{
-		Seq:      runenv.TestInstanceCount,
-		Peername: pro.Peername,
-		PeerID:   pro.ID.String(),
-		AddrInfo: a.AddrInfo(),
+		Seq:       runenv.TestInstanceCount,
+		Peername:  pro.Peername,
+		ProfileID: pro.ID.String(),
+		AddrInfo:  a.AddrInfo(),
 	}
 }
 
@@ -139,7 +114,6 @@ func (a *Actor) ID() string {
 
 // AddrInfo provides this peers address information
 func (a *Actor) AddrInfo() *peer.AddrInfo {
-	fmt.Printf("actor node: %v\n", a.Inst.Node())
 	h := a.Inst.Node().Host()
 	return &peer.AddrInfo{
 		ID:    h.ID(),
@@ -161,9 +135,12 @@ func (a *Actor) GenerateDatasetVersion(name string, numRows int) error {
 		BodyPath: csvFilepath,
 	}
 
-	ref := &reporef.DatasetRef{}
-	return lib.NewDatasetRequestsInstance(a.Inst).Save(p, ref)
+	ds := &dataset.Dataset{}
+	return lib.NewDatasetMethods(a.Inst).Save(p, ds)
 }
+
+// // MarkDatasetAsPublished
+// func (a *Actor)
 
 func generateRandomCSVFile(numRows int) (string, error) {
 	st := &dataset.Structure{
@@ -215,25 +192,25 @@ func generateRandomCSVFile(numRows int) (string, error) {
 
 func defaultQriActorConfig() *config.Config {
 	return &config.Config{
-		Store: &config.Store{
-			Type: "ipfs",
-		},
 		Profile: &config.ProfilePod{
 			Type:    "peer",
 			Color:   "",
 			Created: time.Now(),
 		},
+		Filesystems: []qfs.Config{
+			{Type: "ipfs", Config: map[string]interface{}{"path": filepath.Join(qriRepoPath, "ipfs")}},
+			{Type: "local"},
+			{Type: "http"},
+		},
 		Repo: &config.Repo{
-			Middleware: []string{},
-			Type:       "fs",
+			Type: "fs",
 		},
 		API: &config.API{
 			AllowedOrigins: []string{},
 		},
 		P2P: &config.P2P{
-			Enabled:            true,
-			QriBootstrapAddrs:  []string{},
-			ProfileReplication: "full",
+			Enabled:           true,
+			QriBootstrapAddrs: []string{},
 		},
 		Remote: &config.Remote{
 			Enabled:       true,
@@ -247,9 +224,10 @@ func defaultQriActorConfig() *config.Config {
 				"p2p":   "debug",
 			},
 		},
-		CLI:    &config.CLI{},
-		Webapp: &config.Webapp{},
-		RPC:    &config.RPC{},
-		Render: &config.Render{},
+		CLI: &config.CLI{},
+		RPC: &config.RPC{},
+		Registry: &config.Registry{
+			Location: "",
+		},
 	}
 }

@@ -6,6 +6,25 @@ We're intending to support the [testground project](https://github.com/ipfs/test
 
 Testground is under active development. This is code built that sometimes depends on unmerged branches of an active project. Don't use this. Don't depend on this. 
 
+# How to run #
+Follow the Testground [getting started](https://docs.testground.ai/getting-started) guide to download and familiar with testground.
+
+Make sure you have your `TESTGROUND_HOME` env variable set, if you want your testground plans to live anywhere other then `${HOME}/testground`.
+
+```sh
+# clone qri-io/test-plans
+$ git clone https://github.com/qri-io/test-plans.git
+
+# to add the `remotes` test plan to testgrounds (via symlink)
+$ testground plan import --from ./test-plans --name qri
+
+# make sure the testground daemon is running in a separate terminal
+$ testground daemon
+
+# to run the `push` test locally with two instances:
+$ testground run single --plan qri --testcase push --builder exec:go --runner exec:local --instances 2
+```
+
 # Test Plan Goals
 We're hoping to accomplish a few things through test plans. In order, those are:
 
