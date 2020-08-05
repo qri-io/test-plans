@@ -1184,6 +1184,8 @@ github.com/qri-io/qri v0.9.10-0.20200722133123-5e40437abe70 h1:uzkJ0ydKEJOpf62cu
 github.com/qri-io/qri v0.9.10-0.20200722133123-5e40437abe70/go.mod h1:bCgFyCbM3hhdbuzOtWIuLzHdEaDQbFAstV5z7AASYXg=
 github.com/qri-io/qri v0.9.10-0.20200724185821-049b08666c8b h1:NU+OQU3EcJTkaBc8PGz48M1jPi3I4W3wuqp8Dp2/rVY=
 github.com/qri-io/qri v0.9.10-0.20200724185821-049b08666c8b/go.mod h1:hZNPTbRjcBBblIFyhSfTRVu5VSntz/Bqs1CP0xY4ZHQ=
+github.com/qri-io/qri v0.9.11-0.20200806040119-8ec94aad03b9 h1:tMxJ7/5Py64yurDQpMt585hypV7Py5NfT4GN1RRKFVM=
+github.com/qri-io/qri v0.9.11-0.20200806040119-8ec94aad03b9/go.mod h1:t2j3gDHSJWfc/MLSbqT+Im4Z/e8gXdEVSNZybakPmGU=
 github.com/qri-io/starlib v0.4.2 h1:ZGzmzT9fOqdluezcwhAZAbTn/v6kMg1tC6ALVjQPhpQ=
 github.com/qri-io/starlib v0.4.2/go.mod h1:2xlZ9r2UV4LF4G9mpYPBWo7CtXtdW0h1RoGIkZ8elOE=
 github.com/qri-io/varName v0.1.0 h1:dFP5qZHrxnn5fNoMbjfpMCRBYDrOsoyls7R07r+emk0=

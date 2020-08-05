@@ -24,6 +24,9 @@ import (
 
 var (
 	qriRepoPath string
+	// StateActorConstructed is the state to sync on to check if all the
+	// actors in the test have been constructed
+	StateActorConstructed = sync.State("actor has been constructed")
 )
 
 func init() {
