@@ -12,7 +12,7 @@ enabled = true
 go_version = "1.14"
 module_path = "github.com/qri-io/test-plans"
 exec_pkg = "."
-go_ipfs_version = "0.4.21"
+go_ipfs_version = "0.6.0"
 
 [builders."exec:go"]
 enabled = true
