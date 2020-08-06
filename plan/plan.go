@@ -1,16 +1,19 @@
 package plan
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	wg "sync"
 	"time"
 
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
 	"github.com/qri-io/test-plans/sim"
 	"github.com/testground/sdk-go/network"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
+	"golang.org/x/sync/errgroup"
 )
 
 // PlanConfig encapsulates test plan paremeters
@@ -184,4 +187,42 @@ func (plan *Plan) Finished(ctx context.Context) <-chan error {
 // Close finalizes the plan & cleans up resources
 func (plan *Plan) Close() {
 	plan.Client.Close()
+}
+
+// DialOtherPeers dials a portion of peers
+func (plan *Plan) DialOtherPeers(ctx context.Context) ([]peer.AddrInfo, error) {
+	// Grab list of other peers that are available for this Run
+	var toDial []peer.AddrInfo
+	host := plan.Actor.Inst.Node().Host()
+	myID, _ := host.ID().MarshalBinary()
+
+	for _, ai := range plan.Others {
+		byteID, _ := ai.AddrInfo.ID.MarshalBinary()
+
+		// skip over dialing ourselves, and prevent TCP simultaneous
+		// connect (known to fail) by only dialing peers whose peer ID
+		// is smaller than ours.
+		if bytes.Compare(byteID, myID) < 0 {
+			toDial = append(toDial, *ai.AddrInfo)
+		}
+	}
+
+	// Dial to all the other peers
+	g, ctx := errgroup.WithContext(ctx)
+	for _, ai := range toDial {
+		ai := ai
+		g.Go(func() error {
+			if err := host.Connect(ctx, ai); err != nil {
+				return fmt.Errorf("Error while dialing peer %v: %w", ai.Addrs, err)
+			}
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+
+	plan.Runenv.RecordMessage("dialed other peers")
+
+	return toDial, nil
 }

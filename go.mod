@@ -12,4 +12,5 @@ require (
 	github.com/qri-io/qfs v0.5.1-0.20200722134009-7b5ac5539ce7
 	github.com/qri-io/qri v0.9.11-0.20200806040119-8ec94aad03b9
 	github.com/testground/sdk-go v0.2.2
+	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a
 )

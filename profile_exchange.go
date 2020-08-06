@@ -32,19 +32,19 @@ func RunPlanProfile(ctx context.Context, p *plan.Plan) error {
 		return err
 	}
 
-	isConnector := true
-	if p.Seq%2 == 0 {
-		isConnector = false
-	}
+	// isConnector := true
+	// if p.Seq%2 == 0 {
+	// 	isConnector = false
+	// }
 
-	var executeActions actorActions
-	if isConnector {
-		executeActions = connectToInstances
-	} else {
-		executeActions = waitForConnections
-	}
+	// var executeActions actorActions
+	// if isConnector {
+	// 	executeActions = connectToInstances
+	// } else {
+	// 	executeActions = waitForConnections
+	// }
 
-	if err := executeActions(ctx, p); err != nil {
+	if _, err := p.DialOtherPeers(ctx); err != nil {
 		p.Runenv.RecordFailure(err)
 	}
 
@@ -142,13 +142,12 @@ func newConnector(ctx context.Context, p *plan.Plan) (*sim.Actor, error) {
 func connectToInstances(ctx context.Context, p *plan.Plan) error {
 	var accErr error
 	for _, info := range p.Others {
-		_, err := p.Actor.Inst.Node().Host().NewStream(ctx, info.AddrInfo.ID)
-		if err != nil {
+		if err := p.Actor.Inst.Node().Host().Connect(ctx, *info.AddrInfo); err != nil {
 			accErr = accumulateErrors(accErr, fmt.Errorf("error connecting to %q aka %q: %s", info.AddrInfo.ID, info.Peername, err))
 		}
-		// if err := p.Actor.Inst.Node().Host().Connect(ctx, *info.AddrInfo); err != nil {
-		// 	accErr = accumulateErrors(accErr, fmt.Errorf("error connecting to %q aka %q: %s", info.AddrInfo.ID, info.Peername, err))
-		// }
+	}
+	if accErr == nil {
+		p.Runenv.RecordMessage("successfully connected to each peer")
 	}
 	// signal a pull attempt has been made
 	p.Client.MustSignalEntry(ctx, sim.StateConnectionAttempted)
@@ -159,11 +158,11 @@ func connectToInstances(ctx context.Context, p *plan.Plan) error {
 
 func requestProfile(ctx context.Context, p *plan.Plan) error {
 	var accErr error
-	for _, info := range p.Others {
-		if err := p.Actor.Inst.Node().Host().Connect(ctx, *info.AddrInfo); err != nil {
-			accErr = accumulateErrors(accErr, fmt.Errorf("error connecting to %q aka %q: %s", info.AddrInfo.ID, info.Peername, err))
-		}
-	}
+	// for _, info := range p.Others {
+	// 	if err := p.Actor.Inst.Node().Host().Connect(ctx, *info.AddrInfo); err != nil {
+	// 		accErr = accumulateErrors(accErr, fmt.Errorf("error connecting to %q aka %q: %s", info.AddrInfo.ID, info.Peername, err))
+	// 	}
+	// }
 	// // signal a pull attempt has been made
 	// p.Client.MustSignalEntry(ctx, sim.StateConnectionAttempted)
 	// p.Runenv.RecordMessage("attempted to connect to all instances")
