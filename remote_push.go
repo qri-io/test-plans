@@ -196,7 +196,22 @@ func newReceiver(ctx context.Context, p *plan.Plan) (*sim.Actor, error) {
 	return act, err
 }
 
-func pushToAllRemotes(ctx context.Context, p *plan.Plan) error {
+func accumulateErrors(errors, newError error) error {
+	if errors == nil {
+		return newError
+	}
+	return fmt.Errorf("%s\n%s", errors.Error(), newError.Error())
+}
+
+// actorActions are the actions an actor should take during the test, specific
+// to the kind of actor it is, aka pusher or receiver
+type actorActions func(context.Context, *plan.Plan) error
+
+// pusherActions execute the actions that the pusher should take:
+// - announce it is about to push
+// - push a dataset to all remotes on the remote list
+func pusherActions(ctx context.Context, p *plan.Plan) error {
+	p.Runenv.RecordMessage("About to push to remote")
 	remotes := p.Actor.Inst.Config().Remotes
 	if remotes == nil {
 		return fmt.Errorf("This actor does not know of any remotes, are you sure it is a pusher?")
@@ -218,31 +233,12 @@ func pushToAllRemotes(ctx context.Context, p *plan.Plan) error {
 			accErr = accumulateErrors(accErr, fmt.Errorf("error pushing %q to %q: %s", pp.Ref, pp.RemoteName, err))
 		}
 	}
+	if accErr != nil {
+		p.Runenv.RecordFailure(accErr)
+	}
 	// signal a push attempt has been made
 	p.Client.MustSignalEntry(ctx, sim.StatePushAttempted)
 	p.Runenv.RecordMessage("pushed to all remotes")
-	return accErr
-}
-
-func accumulateErrors(errors, newError error) error {
-	if errors == nil {
-		return newError
-	}
-	return fmt.Errorf("%s\n%s", errors.Error(), newError.Error())
-}
-
-// actorActions are the actions an actor should take during the test, specific
-// to the kind of actor it is, aka pusher or receiver
-type actorActions func(context.Context, *plan.Plan) error
-
-// pusherActions execute the actions that the pusher should take:
-// - announce it is about to push
-// - push a dataset to all remotes on the remote list
-func pusherActions(ctx context.Context, p *plan.Plan) error {
-	p.Runenv.RecordMessage("About to push to remote")
-	if err := pushToAllRemotes(ctx, p); err != nil {
-		return err
-	}
 	p.ActorFinished(ctx)
 	return nil
 }

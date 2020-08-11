@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	wg "sync"
 	"time"
 
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -36,10 +35,9 @@ func PlanConfigFromRuntimeEnv(runenv *runtime.RunEnv) *PlanConfig {
 type Plan struct {
 	Cfg       *PlanConfig
 	Runenv    *runtime.RunEnv
-	Client    *sync.Client
+	Client    sync.Client
 	finishedC <-chan error
 	Seq       int64
-	Wg        *wg.WaitGroup
 
 	Actor  *sim.Actor
 	Others map[string]*sim.ActorInfo
@@ -56,7 +54,6 @@ func NewPlan(ctx context.Context, runenv *runtime.RunEnv) *Plan {
 		Client:    client,
 		finishedC: client.MustBarrier(ctx, FinishedState, runenv.TestInstanceCount).C,
 		Seq:       seq,
-		Wg:        &wg.WaitGroup{},
 
 		Others: map[string]*sim.ActorInfo{},
 	}
@@ -207,6 +204,7 @@ func (plan *Plan) DialOtherPeers(ctx context.Context) ([]peer.AddrInfo, error) {
 		}
 	}
 
+	plan.Runenv.RecordMessage("peers I am going to dial: %v", toDial)
 	// Dial to all the other peers
 	g, ctx := errgroup.WithContext(ctx)
 	for _, ai := range toDial {

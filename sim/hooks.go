@@ -34,7 +34,7 @@ var (
 // datasets. Remote invokes cloud infrastructure on successful push
 type RemoteHooks struct {
 	runenv *runtime.RunEnv
-	client *sync.Client
+	client sync.Client
 }
 
 // RemoteOptionsFunc creates a function to connect hooks to a remote at

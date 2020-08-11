@@ -18,6 +18,7 @@ import (
 	"github.com/qri-io/qri/repo/gen"
 
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/testground/sdk-go/network"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
 )
@@ -41,8 +42,15 @@ type Actor struct {
 }
 
 // NewActor creates an actor instance
-func NewActor(ctx context.Context, runenv *runtime.RunEnv, client *sync.Client, seq int64, opts ...lib.Option) (*Actor, error) {
-	if err := setup(defaultQriActorConfig()); err != nil {
+func NewActor(ctx context.Context, runenv *runtime.RunEnv, client sync.Client, seq int64, opts ...lib.Option) (*Actor, error) {
+	var listeningAddrs []string
+
+	netClient := network.NewClient(client, runenv)
+	if ip := netClient.MustGetDataNetworkIP(); ip.String() != "127.0.0.1" {
+		listeningAddrs = []string{fmt.Sprintf("/ip4/%s/tcp/0", ip)}
+	}
+
+	if err := setup(defaultQriActorConfig(listeningAddrs)); err != nil {
 		return nil, err
 	}
 
@@ -193,7 +201,7 @@ func generateRandomCSVFile(numRows int) (string, error) {
 	return f.Name(), nil
 }
 
-func defaultQriActorConfig() *config.Config {
+func defaultQriActorConfig(listeningAddrs []string) *config.Config {
 	return &config.Config{
 		Profile: &config.ProfilePod{
 			Type:    "peer",
@@ -201,7 +209,13 @@ func defaultQriActorConfig() *config.Config {
 			Created: time.Now(),
 		},
 		Filesystems: []qfs.Config{
-			{Type: "ipfs", Config: map[string]interface{}{"path": filepath.Join(qriRepoPath, "ipfs")}},
+			{
+				Type: "ipfs",
+				Config: map[string]interface{}{
+					"path":           filepath.Join(qriRepoPath, "ipfs"),
+					"listeningAddrs": listeningAddrs,
+				},
+			},
 			{Type: "local"},
 			{Type: "http"},
 		},

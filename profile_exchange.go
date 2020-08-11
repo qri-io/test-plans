@@ -3,106 +3,103 @@ package main
 import (
 	"context"
 	"fmt"
+	"time"
 
-	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/qri-io/qri/event"
 	"github.com/qri-io/qri/lib"
+	"github.com/qri-io/qri/repo/profile"
 	"github.com/qri-io/test-plans/plan"
 	"github.com/qri-io/test-plans/sim"
 	"github.com/testground/sdk-go/sync"
 )
 
-var profileSendAttempted = sync.State("attempted to send profile")
+var doneRecievingProfiles = sync.State("done receiving profiles")
 
 // RunPlanProfile creates an instance, connects to each instance, waits
 // for the profile exchange to finish, and lists all the known profiles
 func RunPlanProfile(ctx context.Context, p *plan.Plan) error {
+	var (
+		qriPeerConnCh      = make(chan profile.ID)
+		connectedQriPeers  = []profile.ID{}
+		profileWait        = make(chan struct{})
+		profileExchangeCtx context.Context
+	)
+	defer func() {
+		close(qriPeerConnCh)
+		close(profileWait)
+	}()
+
 	if err := p.SetupNetwork(ctx); err != nil {
 		return err
 	}
 
-	if err := p.ConstructActor(ctx, newConnector); err != nil {
+	timeout := p.Runenv.IntParam("profile_timeout_sec")
+	profileExchangeCtx, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
+	defer cancel()
+
+	go func() {
+		for {
+			select {
+			case qid := <-qriPeerConnCh:
+				ok := false
+				for _, valQid := range connectedQriPeers {
+					if valQid == qid {
+						ok = true
+					}
+				}
+				if !ok {
+					connectedQriPeers = append(connectedQriPeers, qid)
+					if len(connectedQriPeers) == p.Runenv.TestGroupInstanceCount-1 {
+						profileWait <- struct{}{}
+						return
+					}
+				}
+			case <-profileExchangeCtx.Done():
+				p.Runenv.RecordFailure(fmt.Errorf("context timed out before all profiles were recieved"))
+				profileWait <- struct{}{}
+				return
+			}
+		}
+	}()
+
+	if err := p.ConstructActor(ctx, newConnector(qriPeerConnCh)); err != nil {
 		return err
 	}
 
-	<-p.Client.MustBarrier(ctx, sim.StateActorConstructed, p.Runenv.TestInstanceCount).C
-
-	// Share this node's info w/ all nodes on the network
 	if err := p.ShareInfo(ctx); err != nil {
 		return err
 	}
-
-	// isConnector := true
-	// if p.Seq%2 == 0 {
-	// 	isConnector = false
-	// }
-
-	// var executeActions actorActions
-	// if isConnector {
-	// 	executeActions = connectToInstances
-	// } else {
-	// 	executeActions = waitForConnections
-	// }
 
 	if _, err := p.DialOtherPeers(ctx); err != nil {
 		p.Runenv.RecordFailure(err)
 	}
 
-	// if err := connectToInstances(ctx, p); err != nil {
-	// 	p.Runenv.RecordFailure(err)
-	// }
-
-	// how to get the test to wait until all connections have finished?
-	// everyone has had a sent failure or success for each other node?
-	// that seems excessive but w.e
-
-	p.Runenv.RecordMessage("waiting for all connections to send profiles")
-	// this is a stand in for now, need to think of a better way to barrier
-	// each node sends to each other node
-	sendAttempts := p.Runenv.TestInstanceCount * (p.Runenv.TestInstanceCount - 1)
-	<-p.Client.MustBarrier(ctx, profileSendAttempted, sendAttempts).C
-
+	p.Runenv.RecordMessage("waiting to connect to all qri nodes")
+	<-profileWait
 	if err := listAllKnownProfiles(ctx, p); err != nil {
 		p.Runenv.RecordFailure(err)
 	}
+
+	p.Runenv.RecordMessage("waiting for all qri nodes to be finished exchanging profiles")
+	p.Client.MustSignalEntry(ctx, doneRecievingProfiles)
+	sendAttempts := p.Runenv.TestInstanceCount
+	<-p.Client.MustBarrier(ctx, doneRecievingProfiles, sendAttempts).C
+
 	return <-p.Finished(ctx)
 }
 
-func profileEventHandler(ctx context.Context, p *plan.Plan) event.Handler {
+func profileEventHandler(ctx context.Context, p *plan.Plan, qriPeerConnCh chan profile.ID) event.Handler {
 	return func(ctx context.Context, t event.Type, payload interface{}) error {
-		id, ok := payload.(peer.ID)
+		pro, ok := payload.(*profile.Profile)
 		if !ok {
-			err := fmt.Errorf("unexpected event payload, expected type peer.ID")
+			err := fmt.Errorf("unexpected event payload, expected type *profile.Profile")
 			p.Runenv.RecordFailure(err)
 			return err
 		}
 		switch t {
-		case event.ETP2PProfileRequestReceived:
-			p.Wg.Add(1)
-			p.Runenv.RecordMessage("Profile exchange request received from %q", id)
-			return nil
-		case event.ETP2PProfileRequestSent:
-			p.Wg.Add(1)
-			p.Runenv.RecordMessage("Profile exchange request sent to %q", id)
-			return nil
-		case event.ETP2PProfileSendSuccess:
-			p.Runenv.RecordMessage("Profile sent to %q successfully!", id)
-			p.Wg.Done()
-			// sync
-			p.Client.MustSignalEntry(ctx, profileSendAttempted)
-			return nil
-		case event.ETP2PProfileSendFailed:
-			p.Runenv.RecordMessage("Profile send to %q failed", id)
-			p.Wg.Done()
-			p.Client.MustSignalEntry(ctx, profileSendAttempted)
-			return nil
-		case event.ETP2PProfileReceiveSuccess:
-			p.Runenv.RecordMessage("Profile received from %q successfully!", id)
-			p.Wg.Done()
-			return nil
-		case event.ETP2PProfileReceiveFailed:
-			p.Runenv.RecordMessage("Profile receive to %q failed", id)
-			p.Wg.Done()
+		case event.ETP2PQriPeerConnected:
+			p.Runenv.RecordMessage("Profile exchange request received from %q", pro.Peername)
+			qriPeerConnCh <- pro.ID
 			return nil
 		default:
 			err := fmt.Errorf("unexpected event type: %s", t)
@@ -113,79 +110,39 @@ func profileEventHandler(ctx context.Context, p *plan.Plan) event.Handler {
 }
 
 var profileEventsToHandle = []event.Type{
-	event.ETP2PProfileRequestReceived,
-	event.ETP2PProfileRequestSent,
-	event.ETP2PProfileSendSuccess,
-	event.ETP2PProfileSendFailed,
-	event.ETP2PProfileReceiveSuccess,
-	event.ETP2PProfileReceiveFailed,
+	event.ETP2PQriPeerConnected,
 }
 
-func newConnector(ctx context.Context, p *plan.Plan) (*sim.Actor, error) {
-	act, err := sim.NewActor(ctx, p.Runenv, p.Client, p.Seq, lib.OptEventHandler(profileEventHandler(ctx, p), profileEventsToHandle...))
-	if err != nil {
-		return nil, err
-	}
-
-	if err := act.Inst.Connect(ctx); err != nil {
-		return nil, err
-	}
-
-	p.Client.MustSignalEntry(ctx, sim.StateActorConstructed)
-	p.Runenv.RecordMessage("I'm a Connector named %s", act.Peername())
-	p.Runenv.RecordMessage("My qri ID is %s", act.ID())
-	p.Runenv.RecordMessage("My peer ID is %s", act.AddrInfo().ID)
-	p.Runenv.RecordMessage("My addrs are %s", act.AddrInfo().Addrs)
-	return act, err
-}
-
-func connectToInstances(ctx context.Context, p *plan.Plan) error {
-	var accErr error
-	for _, info := range p.Others {
-		if err := p.Actor.Inst.Node().Host().Connect(ctx, *info.AddrInfo); err != nil {
-			accErr = accumulateErrors(accErr, fmt.Errorf("error connecting to %q aka %q: %s", info.AddrInfo.ID, info.Peername, err))
+func newConnector(qriPeerConnCh chan profile.ID) plan.ActorConstructor {
+	return func(ctx context.Context, p *plan.Plan) (*sim.Actor, error) {
+		act, err := sim.NewActor(ctx, p.Runenv, p.Client, p.Seq, lib.OptEventHandler(profileEventHandler(ctx, p, qriPeerConnCh), profileEventsToHandle...))
+		if err != nil {
+			return nil, err
 		}
-	}
-	if accErr == nil {
-		p.Runenv.RecordMessage("successfully connected to each peer")
-	}
-	// signal a pull attempt has been made
-	p.Client.MustSignalEntry(ctx, sim.StateConnectionAttempted)
-	p.Runenv.RecordMessage("attempted to connect to all instances")
-	waitForConnections(ctx, p)
-	return accErr
-}
 
-func requestProfile(ctx context.Context, p *plan.Plan) error {
-	var accErr error
-	// for _, info := range p.Others {
-	// 	if err := p.Actor.Inst.Node().Host().Connect(ctx, *info.AddrInfo); err != nil {
-	// 		accErr = accumulateErrors(accErr, fmt.Errorf("error connecting to %q aka %q: %s", info.AddrInfo.ID, info.Peername, err))
-	// 	}
-	// }
-	// // signal a pull attempt has been made
-	// p.Client.MustSignalEntry(ctx, sim.StateConnectionAttempted)
-	// p.Runenv.RecordMessage("attempted to connect to all instances")
-	// waitForConnections(ctx, p)
-	return accErr
-}
+		if err := act.Inst.Connect(ctx); err != nil {
+			return nil, err
+		}
 
-func waitForConnections(ctx context.Context, p *plan.Plan) error {
-	p.Runenv.RecordMessage("Waiting for other instances to finish connecting")
-	<-p.Client.MustBarrier(ctx, sim.StateConnectionAttempted, p.Runenv.TestInstanceCount/2).C
-	return nil
+		p.Client.MustSignalEntry(ctx, sim.StateActorConstructed)
+		p.Runenv.RecordMessage("\nI'm a Connector named %s\nMy qri ID is %s\nMy peer ID is %s\nMy addrs are %s", act.Peername(), act.ID(), act.AddrInfo().ID, act.AddrInfo().Addrs)
+
+		<-p.Client.MustBarrier(ctx, sim.StateActorConstructed, p.Runenv.TestInstanceCount).C
+		return act, err
+	}
 }
 
 func listAllKnownProfiles(ctx context.Context, p *plan.Plan) error {
-	p.Runenv.RecordMessage("listing profiles for known instances:")
 	profileList, err := p.Actor.Inst.Repo().Profiles().List()
 	if err != nil {
 		p.Runenv.RecordFailure(fmt.Errorf("unable to list profiles: %s", err))
 		return err
 	}
+	msg := "\nlisting profiles for known instances: "
 	for id, profile := range profileList {
-		p.Runenv.RecordMessage("  %s, %s", profile.Peername, id)
+		msg += fmt.Sprintf("\n  %s, %s", profile.Peername, id)
 	}
+	p.Runenv.RecordMessage(msg)
 	p.ActorFinished(ctx)
 	return nil
 }

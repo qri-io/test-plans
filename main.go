@@ -6,11 +6,12 @@ import (
 	"fmt"
 
 	"github.com/qri-io/test-plans/plan"
+	sdk_run "github.com/testground/sdk-go/run"
 	"github.com/testground/sdk-go/runtime"
 )
 
 func main() {
-	runtime.Invoke(run)
+	sdk_run.Invoke(run)
 }
 
 func run(runenv *runtime.RunEnv) error {
