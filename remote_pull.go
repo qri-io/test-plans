@@ -7,6 +7,7 @@ import (
 	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/qri-io/dataset"
 	"github.com/qri-io/qri/config"
+	"github.com/qri-io/qri/dsref"
 	"github.com/qri-io/qri/lib"
 	"github.com/qri-io/test-plans/plan"
 	"github.com/qri-io/test-plans/sim"
@@ -73,10 +74,6 @@ func newPuller(ctx context.Context, p *plan.Plan) (*sim.Actor, error) {
 		return nil, err
 	}
 
-	if err := act.GenerateDatasetVersion(pullDatasetName, getDatasetSize(p)); err != nil {
-		return nil, err
-	}
-
 	if err := act.Inst.Connect(ctx); err != nil {
 		return nil, err
 	}
@@ -115,6 +112,10 @@ func newRemote(ctx context.Context, p *plan.Plan) (*sim.Actor, error) {
 
 	act, err := sim.NewActor(ctx, p.Runenv, p.Client, p.Seq, opts...)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := act.GenerateDatasetVersion(pullDatasetName, getDatasetSize(p)); err != nil {
 		return nil, err
 	}
 
@@ -182,12 +183,13 @@ func pullFromAllRemotes(ctx context.Context, p *plan.Plan) error {
 		}
 		ds := &dataset.Dataset{}
 		if err := dm.Pull(pp, ds); err != nil {
-			accErr = accumulateErrors(accErr, fmt.Errorf("error pulling %q to %q: %s", pp.Ref, name, err))
+			accErr = accumulateErrors(accErr, fmt.Errorf("error pulling %q from %q: %s", pp.Ref, name, err))
 		}
 	}
 	// signal a pull attempt has been made
 	p.Client.MustSignalEntry(ctx, sim.StatePullAttempted)
-	p.Runenv.RecordMessage("pulled to all remotes")
+	p.Runenv.RecordMessage("attempted pull from all remotes")
+	p.ActorFinished(ctx)
 	return accErr
 }
 
@@ -224,9 +226,22 @@ func pullerActions(ctx context.Context, p *plan.Plan) error {
 // - wait until all pulls have happened
 // - announce closing
 func remoteActions(ctx context.Context, p *plan.Plan) error {
+	ref := &dsref.Ref{
+		Username: p.Actor.Peername(),
+		Name:     pullDatasetName,
+	}
+	source, err := p.Actor.Inst.ResolveReference(ctx, ref, "local")
+	if err != nil {
+		p.Runenv.RecordFailure(fmt.Errorf("cannot resolve ref, source: %q, err: %s", source, err))
+	} else {
+		p.Runenv.RecordMessage("able to resolve own reference: %v", ref)
+		if !ref.Complete() {
+			p.Runenv.RecordFailure(fmt.Errorf("ref not complete"))
+		}
+	}
 	p.Runenv.RecordMessage("Waiting for dataset pulls")
 	numOfPullers := p.Runenv.TestInstanceCount - (p.Runenv.TestGroupInstanceCount / (getPullersPerRemote(p) + 1))
-	<-p.Client.MustBarrier(ctx, sim.StatePushAttempted, numOfPullers).C
+	<-p.Client.MustBarrier(ctx, sim.StatePullAttempted, numOfPullers).C
 
 	p.Runenv.RecordMessage("Finished waiting")
 	p.ActorFinished(ctx)

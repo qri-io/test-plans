@@ -142,8 +142,9 @@ func (a *Actor) GenerateDatasetVersion(name string, numRows int) error {
 	}
 
 	p := &lib.SaveParams{
-		Ref:      fmt.Sprintf("me/%s", name),
-		BodyPath: csvFilepath,
+		Ref:        fmt.Sprintf("me/%s", name),
+		BodyPath:   csvFilepath,
+		UseDscache: true,
 	}
 
 	ds := &dataset.Dataset{}
