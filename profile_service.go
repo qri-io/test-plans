@@ -15,14 +15,14 @@ import (
 
 var doneRecievingProfiles = sync.State("done receiving profiles")
 
-// RunPlanProfile creates an instance, connects to each instance, waits
+// RunPlanProfileService creates an instance, connects to each instance, waits
 // for the profile exchange to finish, and lists all the known profiles
-func RunPlanProfile(ctx context.Context, p *plan.Plan) error {
+func RunPlanProfileService(ctx context.Context, p *plan.Plan) error {
 	var (
-		qriPeerConnCh      = make(chan profile.ID)
-		connectedQriPeers  = []profile.ID{}
-		profileWait        = make(chan struct{})
-		profileExchangeCtx context.Context
+		qriPeerConnCh     = make(chan profile.ID)
+		connectedQriPeers = []profile.ID{}
+		profileWait       = make(chan struct{})
+		profileServiceCtx context.Context
 	)
 	defer func() {
 		close(qriPeerConnCh)
@@ -33,28 +33,28 @@ func RunPlanProfile(ctx context.Context, p *plan.Plan) error {
 		return err
 	}
 
-	timeout := p.Runenv.IntParam("profile_timeout_sec")
-	profileExchangeCtx, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
+	timeout := p.Runenv.IntParam("profile_service_timeout_sec")
+	profileServiceCtx, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
 	defer cancel()
 
 	go func() {
 		for {
 			select {
-			case qid := <-qriPeerConnCh:
+			case ProfileService := <-qriPeerConnCh:
 				ok := false
-				for _, valQid := range connectedQriPeers {
-					if valQid == qid {
+				for _, valProfileService := range connectedQriPeers {
+					if valProfileService == ProfileService {
 						ok = true
 					}
 				}
 				if !ok {
-					connectedQriPeers = append(connectedQriPeers, qid)
+					connectedQriPeers = append(connectedQriPeers, ProfileService)
 					if len(connectedQriPeers) == p.Runenv.TestGroupInstanceCount-1 {
 						profileWait <- struct{}{}
 						return
 					}
 				}
-			case <-profileExchangeCtx.Done():
+			case <-profileServiceCtx.Done():
 				p.Runenv.RecordFailure(fmt.Errorf("context timed out before all profiles were recieved"))
 				profileWait <- struct{}{}
 				return
@@ -88,7 +88,7 @@ func RunPlanProfile(ctx context.Context, p *plan.Plan) error {
 	return <-p.Finished(ctx)
 }
 
-func profileEventHandler(ctx context.Context, p *plan.Plan, qriPeerConnCh chan profile.ID) event.Handler {
+func profileServiceEventHandler(ctx context.Context, p *plan.Plan, qriPeerConnCh chan profile.ID) event.Handler {
 	return func(ctx context.Context, t event.Type, payload interface{}) error {
 		pro, ok := payload.(*profile.Profile)
 		if !ok {
@@ -109,13 +109,13 @@ func profileEventHandler(ctx context.Context, p *plan.Plan, qriPeerConnCh chan p
 	}
 }
 
-var profileEventsToHandle = []event.Type{
+var profileServiceEventsToHandle = []event.Type{
 	event.ETP2PQriPeerConnected,
 }
 
 func newConnector(qriPeerConnCh chan profile.ID) plan.ActorConstructor {
 	return func(ctx context.Context, p *plan.Plan) (*sim.Actor, error) {
-		act, err := sim.NewActor(ctx, p.Runenv, p.Client, p.Seq, lib.OptEventHandler(profileEventHandler(ctx, p, qriPeerConnCh), profileEventsToHandle...))
+		act, err := sim.NewActor(ctx, p.Runenv, p.Client, p.Seq, lib.OptEventHandler(profileServiceEventHandler(ctx, p, qriPeerConnCh), profileServiceEventsToHandle...))
 		if err != nil {
 			return nil, err
 		}
