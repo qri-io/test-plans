@@ -11,6 +11,23 @@ Follow the Testground [getting started](https://docs.testground.ai/getting-start
 
 Make sure you have your `TESTGROUND_HOME` env variable set, if you want your testground plans to live anywhere other then `${HOME}/testground`.
 
+
+### loading shared libraries in Testground's docker file
+Take a look at this issue: [error loading shared libraries in default RUNTIME_IMAGE](testground/testground#1062). To get the qri binary to execute, we need to statically-link the test-plan binary: 
+
+in file https://github.com/testground/testground/blob/master/pkg/build/docker_go.go#L593 replace
+```
+  && GOOS=linux GOARCH=amd64 go build -o ${PLAN_DIR}/testplan.bin ${BUILD_TAGS} ${TESTPLAN_EXEC_PKG}
+```
+with
+```
+  && GOOS=linux GOARCH=amd64 go build -a -ldflags '-extldflags "-static"' -o ${PLAN_DIR}/testplan.bin ${BUILD_TAGS} ${TESTPLAN_EXEC_PKG} 
+```
+
+Then you can move onto actually getting & running our test plans!
+
+### running qri's test plan
+
 ```sh
 # clone qri-io/test-plans
 $ git clone https://github.com/qri-io/test-plans.git

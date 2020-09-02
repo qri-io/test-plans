@@ -1,23 +1,16 @@
 name = "qri"
-# hashicorp/go-getter URLs, so in the future we can support fetching test plans
-# from GitHub.
-source_path = "file://${TESTGROUND_HOME}/plans/qri"
-
 [defaults]
 builder = "exec:go"
 runner = "local:exec"
 
 [builders."docker:go"]
+runtime_image = "debian"
 enabled = true
-go_version = "1.14"
-module_path = "github.com/qri-io/test-plans"
-exec_pkg = "."
-go_ipfs_version = "0.4.21"
+build_base_image      = "golang:1.14.6-buster"
 
 [builders."exec:go"]
 enabled = true
 module_path = "github.com/qri-io/test-plans"
-exec_pkg = "."
 
 [runners."local:docker"]
 enabled = true
@@ -47,8 +40,9 @@ instances = { min = 2, max = 200, default = 2 }
   pullersPerRemote     = { type = "int", desc = "number of pusher instances we want to have for each receiver instance. Will error if this number is more then the number of instances in the test case", default = 1 }
 
 [[testcases]]
-name = "profileExchange"
+name = "profile_service"
 instances = { min = 2, max = 200, default = 2 }
   [testcases.params]
   timeout_secs = { type = "int", desc = "test timeout", unit = "seconds", default = 300 }
   latency      = { type = "int", desc = "latency between peers", unit = "ms", default = 100 }
+  profile_service_timeout_sec = { type = "int", desc = "timeout for profile exchange", unit = "seconds", default = 60 }

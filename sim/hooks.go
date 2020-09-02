@@ -34,22 +34,24 @@ var (
 // datasets. Remote invokes cloud infrastructure on successful push
 type RemoteHooks struct {
 	runenv *runtime.RunEnv
-	client *sync.Client
+	client sync.Client
 }
 
 // RemoteOptionsFunc creates a function to connect hooks to a remote at
 // initialization
 func (r *RemoteHooks) RemoteOptionsFunc() lib.Option {
-	return lib.OptRemoteOptions(func(opts *remote.Options) {
-		opts.DatasetPushPreCheck = r.acceptPushPreCheck
-		opts.DatasetPushFinalCheck = r.acceptPushFinalCheck
-		opts.DatasetPushed = r.datasetPushed
-		opts.DatasetPullPreCheck = r.datasetPullPreCheck
-		opts.DatasetPulled = r.datasetPulled
-		opts.DatasetRemoved = r.datasetRemoved
-		opts.LogPushPreCheck = r.logPushPreCheck
-		opts.LogPushFinalCheck = r.logPushFinalCheck
-		opts.LogPushed = r.logPushed
+	return lib.OptRemoteOptions([]remote.OptionsFunc{
+		func(opts *remote.Options) {
+			opts.DatasetPushPreCheck = r.acceptPushPreCheck
+			opts.DatasetPushFinalCheck = r.acceptPushFinalCheck
+			opts.DatasetPushed = r.datasetPushed
+			opts.DatasetPullPreCheck = r.datasetPullPreCheck
+			opts.DatasetPulled = r.datasetPulled
+			opts.DatasetRemoved = r.datasetRemoved
+			opts.LogPushPreCheck = r.logPushPreCheck
+			opts.LogPushFinalCheck = r.logPushFinalCheck
+			opts.LogPushed = r.logPushed
+		},
 	})
 }
 

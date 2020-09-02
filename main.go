@@ -6,11 +6,12 @@ import (
 	"fmt"
 
 	"github.com/qri-io/test-plans/plan"
+	sdk_run "github.com/testground/sdk-go/run"
 	"github.com/testground/sdk-go/runtime"
 )
 
 func main() {
-	runtime.Invoke(run)
+	sdk_run.Invoke(run)
 }
 
 func run(runenv *runtime.RunEnv) error {
@@ -27,8 +28,8 @@ func run(runenv *runtime.RunEnv) error {
 		return RunPlanRemotePushPull(ctx, p)
 	case "pull":
 		return RunPlanRemotePull(ctx, p)
-	case "profileExchange":
-		return RunPlanProfileExchange(ctx, p)
+	case "profile_service":
+		return RunPlanProfileService(ctx, p)
 	default:
 		msg := fmt.Sprintf("Unknown TestCase %s", c)
 		return errors.New(msg)
